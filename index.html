@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maps Guesser - Dynamic Timer & Wait System</title>
+    <title>Maps Guesser - Fixed Loading System</title>
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,6 +13,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
+        /* Reset dan base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         /* Animasi dan styles */
         @keyframes scorePop {
             0% { transform: scale(1); }
@@ -38,7 +45,7 @@
             border-radius: 10px;
         }
         
-        /* Map container kecil persegi panjang */
+        /* Map container */
         #map {
             height: 300px;
             width: 100%;
@@ -95,12 +102,13 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
             color: white;
+            font-family: system-ui, -apple-system, sans-serif;
         }
         
         .loading-spinner {
@@ -117,7 +125,7 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Map controls kecil */
+        /* Map controls */
         .map-controls {
             position: absolute;
             top: 5px;
@@ -156,6 +164,13 @@
         .waiting-pulse {
             animation: waitingPulse 1.5s infinite;
         }
+
+        /* Error state */
+        .error-state {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
@@ -163,13 +178,14 @@
     <div id="globalLoading" class="loading-overlay">
         <div class="text-center">
             <div class="loading-spinner mx-auto mb-4"></div>
-            <div class="text-xl">Memuat Game Maps Guesser</div>
-            <div id="loadingDetail" class="text-sm mt-2 text-gray-300">Menyiapkan sistem</div>
+            <div class="text-xl mb-2">Memuat Game Maps Guesser</div>
+            <div id="loadingDetail" class="text-sm text-gray-300">Menyiapkan sistem...</div>
+            <div id="loadingError" class="text-sm text-red-300 mt-2 hidden"></div>
         </div>
     </div>
 
     <div id="app" class="min-h-screen flex flex-col hidden">
-        <!-- Header Compact -->
+        <!-- Header -->
         <header class="bg-blue-600 text-white p-3 shadow-md">
             <div class="container mx-auto flex justify-between items-center">
                 <h1 class="text-xl font-bold">🎯 Maps Guesser</h1>
@@ -226,13 +242,10 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Region</label>
                             <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-2 text-sm">
                                 <option value="indonesia">🇮🇩 Indonesia</option>
-                                <option value="jawa">🏝️ Jawa</option>
                                 <option value="jogja">🏯 Yogyakarta</option>
                                 <option value="bali">🌴 Bali</option>
-                                <option value="sumatra">🌋 Sumatra</option>
                                 <option value="mexico">🇲🇽 Mexico</option>
                                 <option value="japan">🇯🇵 Japan</option>
-                                <option value="europe">🇪🇺 Europe</option>
                             </select>
                         </div>
                     </div>
@@ -273,9 +286,6 @@
                         <button id="addDemoPlayer2" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition">
                             + Pemain 3
                         </button>
-                        <button id="addDemoPlayer3" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition">
-                            + Pemain 4
-                        </button>
                     </div>
                 </div>
             </div>
@@ -283,14 +293,14 @@
             <!-- Game Screen -->
             <div id="gameScreen" class="hidden">
                 <div class="flex flex-col gap-3">
-                    <!-- Map Container Compact -->
+                    <!-- Map Container -->
                     <div class="bg-white rounded-lg shadow-sm p-3">
                         <div class="flex justify-between items-center mb-2">
-                            <div id="roundInfo" class="compact-info bg-blue-600 text-white rounded-lg px-3 py-1">
+                            <div class="bg-blue-600 text-white rounded-lg px-3 py-1">
                                 <strong>Ronde <span id="currentRoundDisplay">1</span>/<span id="totalRoundsDisplay">5</span></strong>
                             </div>
                             <div id="difficultyBadge" class="text-xs px-2 py-1 rounded-full font-medium">
-                                <!-- Difficulty badge akan muncul di sini -->
+                                🟢 Mudah
                             </div>
                         </div>
                         
@@ -298,7 +308,7 @@
                         <div id="locationClue" class="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <h3 class="font-bold text-sm mb-1">📍 Petunjuk Lokasi</h3>
                             <div id="clueText" class="text-sm font-medium text-yellow-800">
-                                Memuat petunjuk...
+                                Pilih region dan mulai game!
                             </div>
                         </div>
                         
@@ -331,7 +341,7 @@
                         </div>
                     </div>
                     
-                    <!-- Game Panel Compact -->
+                    <!-- Game Panel -->
                     <div class="bg-white rounded-lg shadow-sm p-3">
                         <!-- Game Info -->
                         <div class="mb-3 p-2 bg-blue-50 rounded-lg">
@@ -365,7 +375,7 @@
                                     💡 Petunjuk (<span id="hintCount">3</span>)
                                 </button>
                                 <button id="changeViewBtn" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded text-sm transition">
-                                    🔄 Ganti Peta
+                                    🔄 Peta
                                 </button>
                             </div>
                         </div>
@@ -377,28 +387,32 @@
                             <p id="roundScore" class="text-md font-bold"></p>
                         </div>
 
-                        <!-- Players Status Compact -->
+                        <!-- Players Status -->
                         <div class="mb-3">
                             <h3 class="font-bold mb-1 text-sm">👥 Status Pemain</h3>
                             <div id="playersStatus" class="space-y-1 max-h-24 overflow-y-auto custom-scrollbar text-xs">
-                                <!-- Players status will be shown here -->
+                                <div class="p-2 bg-gray-100 rounded text-center text-gray-500">
+                                    Belum ada pemain
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Round Results Table -->
+                <!-- Round Results -->
                 <div id="roundResults" class="mt-3 bg-white rounded-lg shadow-sm p-3 hidden">
                     <h3 class="text-md font-bold mb-2">📊 Hasil Ronde <span id="resultsRoundNumber">1</span></h3>
                     <div id="resultsTable" class="overflow-x-auto text-xs mb-3">
-                        <!-- Results table will be populated here -->
+                        <div class="p-2 bg-gray-100 rounded text-center text-gray-500">
+                            Menunggu hasil...
+                        </div>
                     </div>
                     
                     <!-- Next Round Info -->
                     <div id="nextRoundInfo" class="p-2 bg-blue-50 rounded-lg text-center hidden">
                         <div class="flex items-center justify-center space-x-2">
                             <div class="w-2 h-2 bg-blue-500 rounded-full waiting-pulse"></div>
-                            <span class="text-xs text-blue-700">Menunggu pemain lain untuk ronde berikutnya...</span>
+                            <span class="text-xs text-blue-700">Menunggu host memulai ronde berikutnya...</span>
                         </div>
                     </div>
                     
@@ -412,7 +426,7 @@
             <div id="winnerScreen" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 max-w-xs w-full mx-4 text-center winner-glow">
                     <h2 class="text-xl font-bold mb-3 text-yellow-600">🎉 Pemenang! 🎉</h2>
-                    <div id="winnerName" class="text-lg font-bold text-blue-600 mb-3"></div>
+                    <div id="winnerName" class="text-lg font-bold text-blue-600 mb-3">Pemain1</div>
                     <div id="winnerScore" class="text-md mb-4">Skor: <span class="font-bold">5900</span></div>
                     <p class="text-gray-600 text-sm">Kembali ke lobby dalam <span id="countdown">10</span> detik...</p>
                 </div>
@@ -422,10 +436,10 @@
 
     <script>
         // =============================================
-        // MAPS GUESSER - Dynamic Timer & Wait System
+        // MAPS GUESSER - Fixed Loading System
         // =============================================
 
-        // Game state
+        // Simple Game State
         let gameState = {
             playerId: null,
             playerName: '',
@@ -434,613 +448,433 @@
             currentRound: 0,
             totalRounds: 5,
             score: 0,
-            roundScores: [],
             currentLocation: null,
-            currentLocationName: '',
-            currentDifficulty: 'medium',
-            guessMarker: null,
-            answerMarker: null,
-            distanceLine: null,
             gameStarted: false,
             roundActive: false,
-            hintsUsed: 0,
-            maxHints: 3,
-            startTime: null,
-            map: null,
-            selectedRegion: 'indonesia',
-            roundTime: 0,
-            roundTimer: null,
-            players: {},
-            currentRoundResults: [],
-            currentGuess: null,
-            mapInitialized: false,
-            hasGuessed: false,
-            timeLimit: 25,
-            timeLeft: 25
+            map: null
         };
 
-        // DAERAH SPESIFIK dengan difficulty level
-        const specificLocations = {
+        // Simple Locations Data
+        const locations = {
             'indonesia': [
-                { 
-                    lat: -6.2088, lng: 106.8456, 
-                    name: "Monas Jakarta",
-                    clue: "Monumen nasional di pusat kota dengan api di puncaknya",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: -7.7971, lng: 110.3688, 
-                    name: "Keraton Yogyakarta",
-                    clue: "Istana kerajaan di kota pelajar dengan arsitektur Jawa",
-                    difficulty: "easy", 
-                    timeLimit: 19
-                },
-                { 
-                    lat: -8.3405, lng: 115.0920, 
-                    name: "Pantai Kuta Bali",
-                    clue: "Pantai terkenal dengan ombak bagus untuk selancar di pulau dewata",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: -6.9175, lng: 107.6191, 
-                    name: "Gedung Sate Bandung",
-                    clue: "Gedung pemerintahan dengan ornamen tusuk sate di atapnya",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: -7.2504, lng: 112.7688, 
-                    name: "Tugu Pahlawan Surabaya",
-                    clue: "Monumen perjuangan setinggi 41.15 meter di kota pahlawan",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: -6.5950, lng: 106.7890, 
-                    name: "Taman Safari Bogor",
-                    clue: "Taman konservasi dengan safari malam di kawasan Puncak",
-                    difficulty: "hard",
-                    timeLimit: 25
-                },
-                { 
-                    lat: -7.6079, lng: 110.2038, 
-                    name: "Candi Borobudur",
-                    clue: "Candi Buddha terbesar di dunia dengan stupa dan relief",
-                    difficulty: "hard",
-                    timeLimit: 25
-                }
+                { lat: -6.2088, lng: 106.8456, name: "Monas Jakarta", clue: "Monumen nasional di pusat kota", difficulty: "easy", time: 19 },
+                { lat: -7.7971, lng: 110.3688, name: "Keraton Yogyakarta", clue: "Istana kerajaan di kota pelajar", difficulty: "easy", time: 19 },
+                { lat: -8.3405, lng: 115.0920, name: "Pantai Kuta Bali", clue: "Pantai terkenal untuk selancar", difficulty: "easy", time: 19 }
             ],
             'jogja': [
-                { 
-                    lat: -7.7971, lng: 110.3688, 
-                    name: "Keraton Yogyakarta",
-                    clue: "Istana Sultan Hamengkubuwono dengan pagar bata merah",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: -7.8032, lng: 110.3648, 
-                    name: "Malioboro Street",
-                    clue: "Jalan utama untuk belanja dengan hotel Phoenix di ujung",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: -7.7679, lng: 110.3783, 
-                    name: "Sleman City Hall",
-                    clue: "Kantor bupati di kawasan ring road utara dekat UGM",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: -7.7828, lng: 110.3909, 
-                    name: "UGM Kampus",
-                    clue: "Universitas negeri terbesar di Bulaksumur",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: -7.8075, lng: 110.3712, 
-                    name: "Benteng Vredeburg",
-                    clue: "Benteng Belanda dekat titik nol kilometer",
-                    difficulty: "hard",
-                    timeLimit: 25
-                }
+                { lat: -7.7971, lng: 110.3688, name: "Keraton Yogyakarta", clue: "Istana dengan pagar bata merah", difficulty: "easy", time: 19 },
+                { lat: -7.8032, lng: 110.3648, name: "Malioboro Street", clue: "Jalan shopping dengan hotel Phoenix", difficulty: "easy", time: 19 },
+                { lat: -7.7679, lng: 110.3783, name: "Sleman City Hall", clue: "Kantor bupati dekat UGM", difficulty: "medium", time: 22 }
             ],
             'mexico': [
-                { 
-                    lat: 19.4326, lng: -99.1332, 
-                    name: "Zocalo Mexico City",
-                    clue: "Plaza utama dengan katedral dan istana nasional",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: 20.6597, lng: -103.3496, 
-                    name: "Guadalajara Cathedral",
-                    clue: "Katedral dengan menara kuning di kota mariachi",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: 21.1619, lng: -86.8515, 
-                    name: "Cancun Beach",
-                    clue: "Pantai berpasir putih dengan air turquoise di Riviera Maya",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: 19.0414, lng: -98.2063, 
-                    name: "Pyramid of Cholula",
-                    clue: "Piramida terbesar di dunia dengan gereja di puncaknya",
-                    difficulty: "hard",
-                    timeLimit: 25
-                }
-            ],
-            'japan': [
-                { 
-                    lat: 35.6895, lng: 139.6917, 
-                    name: "Shibuya Crossing Tokyo",
-                    clue: "Persimpangan terkenal dengan layar elektronik raksasa",
-                    difficulty: "easy",
-                    timeLimit: 19
-                },
-                { 
-                    lat: 34.6937, lng: 135.5023, 
-                    name: "Osaka Castle",
-                    clue: "Kastil bersejarah dengan warna hijau dan emas di tengah taman",
-                    difficulty: "medium",
-                    timeLimit: 22
-                },
-                { 
-                    lat: 35.0116, lng: 135.7681, 
-                    name: "Kinkaku-ji Kyoto",
-                    clue: "Kuil emas yang memantul di danau dengan taman Jepang",
-                    difficulty: "hard",
-                    timeLimit: 25
-                }
+                { lat: 19.4326, lng: -99.1332, name: "Zocalo Mexico City", clue: "Plaza utama dengan katedral", difficulty: "easy", time: 19 },
+                { lat: 20.6597, lng: -103.3496, name: "Guadalajara Cathedral", clue: "Katedral dengan menara kuning", difficulty: "medium", time: 22 }
             ]
         };
 
         // DOM Elements
         const globalLoading = document.getElementById('globalLoading');
-        const app = document.getElementById('app');
         const loadingDetail = document.getElementById('loadingDetail');
+        const loadingError = document.getElementById('loadingError');
+        const app = document.getElementById('app');
         const lobbyScreen = document.getElementById('lobbyScreen');
         const gameScreen = document.getElementById('gameScreen');
-        const winnerScreen = document.getElementById('winnerScreen');
         const playerNameInput = document.getElementById('playerName');
         const lobbyCodeInput = document.getElementById('lobbyCode');
-        const generateCodeBtn = document.getElementById('generateCodeBtn');
         const joinLobbyBtn = document.getElementById('joinLobbyBtn');
         const startGameBtn = document.getElementById('startGameBtn');
-        const leaveLobbyBtn = document.getElementById('leaveLobbyBtn');
-        const playersList = document.getElementById('playersList');
-        const playerCount = document.getElementById('playerCount');
-        const lobbyStatus = document.getElementById('lobbyStatus');
-        const addDemoPlayer1 = document.getElementById('addDemoPlayer1');
-        const addDemoPlayer2 = document.getElementById('addDemoPlayer2');
-        const addDemoPlayer3 = document.getElementById('addDemoPlayer3');
-        const mapLoading = document.getElementById('mapLoading');
-        const zoomInBtn = document.getElementById('zoomInBtn');
-        const zoomOutBtn = document.getElementById('zoomOutBtn');
-        const guessInstructions = document.getElementById('guessInstructions');
-        const roundInfo = document.getElementById('roundInfo');
-        const currentRoundDisplay = document.getElementById('currentRoundDisplay');
-        const totalRoundsDisplay = document.getElementById('totalRoundsDisplay');
-        const currentRoundElement = document.getElementById('currentRound');
-        const totalRoundsElement = document.getElementById('totalRounds');
-        const currentLobbyCode = document.getElementById('currentLobbyCode');
-        const roundTimer = document.getElementById('roundTimer');
-        const timerValue = document.getElementById('timerValue');
-        const playersStatus = document.getElementById('playersStatus');
-        const lockGuessBtn = document.getElementById('lockGuessBtn');
-        const hintBtn = document.getElementById('hintBtn');
-        const changeViewBtn = document.getElementById('changeViewBtn');
-        const hintCountElement = document.getElementById('hintCount');
-        const locationClue = document.getElementById('locationClue');
-        const clueText = document.getElementById('clueText');
-        const difficultyBadge = document.getElementById('difficultyBadge');
-        const waitingForPlayers = document.getElementById('waitingForPlayers');
-        const waitingProgress = document.getElementById('waitingProgress');
-        const playersFinished = document.getElementById('playersFinished');
-        const totalPlayers = document.getElementById('totalPlayers');
-        const roundResultElement = document.getElementById('roundResult');
-        const distanceResultElement = document.getElementById('distanceResult');
-        const roundScoreElement = document.getElementById('roundScore');
-        const roundResults = document.getElementById('roundResults');
-        const resultsTable = document.getElementById('resultsTable');
-        const resultsRoundNumber = document.getElementById('resultsRoundNumber');
-        const nextRoundInfo = document.getElementById('nextRoundInfo');
-        const nextRoundBtn = document.getElementById('nextRoundBtn');
-        const winnerName = document.getElementById('winnerName');
-        const winnerScore = document.getElementById('winnerScore');
-        const countdown = document.getElementById('countdown');
 
-        // Initialize application
-        async function init() {
-            try {
-                updateLoadingDetail("Menginisialisasi game...");
-                await simulateLoad(1000);
-
-                updateLoadingDetail("Membuat ID player...");
-                gameState.playerId = generatePlayerId();
-                await simulateLoad(500);
-
-                updateLoadingDetail("Memuat pengaturan...");
-                loadSavedSettings();
-                await simulateLoad(500);
-
-                updateLoadingDetail("Menyiapkan antarmuka...");
-                setupEventListeners();
-                await simulateLoad(500);
-
-                // Sembunyikan loading dan tampilkan app
-                globalLoading.style.opacity = '0';
-                setTimeout(() => {
-                    globalLoading.classList.add('hidden');
-                    app.classList.remove('hidden');
-                }, 500);
-
-            } catch (error) {
-                console.error('Initialization error:', error);
-                alert('Error inisialisasi: ' + error.message);
-            }
-        }
-
-        // [Fungsi-fungsi utility dan lobby system sama seperti sebelumnya...]
-        // Untuk menjaga panjang response, saya skip bagian yang sama
-
-        // START ROUND dengan timer dynamic
-        function startRound() {
-            if (gameState.currentRound > gameState.totalRounds) {
-                endGame();
-                return;
-            }
-
-            gameState.roundActive = true;
-            gameState.hasGuessed = false;
-            gameState.hintsUsed = 0;
-            gameState.startTime = Date.now();
-            gameState.roundTime = 0;
-            gameState.currentGuess = null;
-
-            // Clear previous markers
-            clearMapOverlays();
-
-            // Hide previous results
-            roundResultElement.classList.add('hidden');
-            roundResults.classList.add('hidden');
-            waitingForPlayers.classList.add('hidden');
-
-            // Generate random location dengan difficulty
-            generateRandomLocation();
-
-            // Update UI
-            updateGameUI();
-            startRoundTimer();
-
-            // Reset controls
-            lockGuessBtn.classList.remove('bg-blue-500', 'bg-gray-400');
-            lockGuessBtn.classList.add('bg-green-500');
-            lockGuessBtn.textContent = '🔒 Kunci Tebakan';
-            lockGuessBtn.disabled = false;
-            hintBtn.disabled = false;
-            hintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-
-            console.log(`Round ${gameState.currentRound} started - Difficulty: ${gameState.currentDifficulty}, Time: ${gameState.timeLimit}s`);
-        }
-
-        // Generate random location dengan difficulty
-        function generateRandomLocation() {
-            const region = gameState.selectedRegion;
-            const locations = specificLocations[region] || specificLocations['indonesia'];
+        // Initialize Application - FIXED VERSION
+        function init() {
+            console.log('Starting initialization...');
             
-            if (locations && locations.length > 0) {
-                // Pilih random location
-                const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-                gameState.currentLocation = {
-                    lat: randomLocation.lat,
-                    lng: randomLocation.lng
-                };
-                gameState.currentLocationName = randomLocation.name;
-                gameState.currentDifficulty = randomLocation.difficulty;
-                gameState.timeLimit = randomLocation.timeLimit;
-                gameState.timeLeft = randomLocation.timeLimit;
-
-                // Update clue dan difficulty badge
-                clueText.textContent = randomLocation.clue;
-                updateDifficultyBadge(randomLocation.difficulty);
+            try {
+                // Step 1: Basic setup
+                updateLoadingDetail("Menyiapkan game...");
+                gameState.playerId = 'player_' + Date.now();
+                gameState.playerName = playerNameInput.value;
                 
-                console.log(`Selected location: ${randomLocation.name} (${randomLocation.difficulty})`);
+                // Step 2: Setup event listeners
+                setupEventListeners();
+                
+                // Step 3: Simulate loading completion
+                setTimeout(() => {
+                    hideLoadingAndShowApp();
+                }, 2000);
+                
+            } catch (error) {
+                showLoadingError('Error inisialisasi: ' + error.message);
+                console.error('Init error:', error);
             }
-
-            // Set map view
-            const bounds = regionBounds[region] || { center: [0, 0], zoom: 2 };
-            gameState.map.setView(bounds.center, bounds.zoom);
         }
 
-        // Update difficulty badge
+        // Setup Event Listeners - SIMPLIFIED
+        function setupEventListeners() {
+            console.log('Setting up event listeners...');
+            
+            joinLobbyBtn.addEventListener('click', function() {
+                const name = playerNameInput.value.trim();
+                const code = lobbyCodeInput.value.trim().toUpperCase();
+                
+                if (name.length < 2) {
+                    alert('Nama harus minimal 2 karakter!');
+                    return;
+                }
+                
+                if (code.length !== 6) {
+                    alert('Kode lobby harus 6 karakter!');
+                    return;
+                }
+                
+                gameState.playerName = name;
+                gameState.lobbyCode = code;
+                gameState.isHost = true;
+                
+                // Show lobby controls
+                startGameBtn.classList.remove('hidden');
+                joinLobbyBtn.classList.add('hidden');
+                
+                alert('Lobby ' + code + ' berhasil dibuat!');
+            });
+            
+            startGameBtn.addEventListener('click', function() {
+                startGame();
+            });
+            
+            document.getElementById('generateCodeBtn').addEventListener('click', function() {
+                lobbyCodeInput.value = generateLobbyCode();
+            });
+            
+            // Demo players
+            document.getElementById('addDemoPlayer1').addEventListener('click', function() {
+                alert('Pemain 2 bergabung!');
+            });
+        }
+
+        // Generate Lobby Code
+        function generateLobbyCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Start Game - SIMPLIFIED
+        function startGame() {
+            console.log('Starting game...');
+            
+            gameState.totalRounds = parseInt(document.getElementById('roundsSelect').value);
+            gameState.selectedRegion = document.getElementById('regionSelect').value;
+            gameState.currentRound = 1;
+            gameState.gameStarted = true;
+            
+            // Switch to game screen
+            lobbyScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // Initialize map and start first round
+            initMap();
+            startRound();
+        }
+
+        // Initialize Map - SIMPLIFIED
+        function initMap() {
+            console.log('Initializing map...');
+            
+            try {
+                // Create simple map
+                gameState.map = L.map('map').setView([-2.5489, 118.0149], 5);
+                
+                // Add tile layer
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(gameState.map);
+                
+                // Add click listener
+                gameState.map.on('click', function(e) {
+                    if (gameState.roundActive) {
+                        handleMapClick(e.latlng);
+                    }
+                });
+                
+                console.log('Map initialized successfully');
+                
+            } catch (error) {
+                console.error('Map init error:', error);
+                alert('Error memuat peta: ' + error.message);
+            }
+        }
+
+        // Start Round - SIMPLIFIED
+        function startRound() {
+            console.log('Starting round ' + gameState.currentRound);
+            
+            gameState.roundActive = true;
+            
+            // Generate random location
+            const regionLocations = locations[gameState.selectedRegion] || locations['indonesia'];
+            const randomLocation = regionLocations[Math.floor(Math.random() * regionLocations.length)];
+            
+            gameState.currentLocation = randomLocation;
+            
+            // Update UI
+            document.getElementById('currentRoundDisplay').textContent = gameState.currentRound;
+            document.getElementById('totalRoundsDisplay').textContent = gameState.totalRounds;
+            document.getElementById('currentRound').textContent = gameState.currentRound;
+            document.getElementById('totalRounds').textContent = gameState.totalRounds;
+            document.getElementById('currentLobbyCode').textContent = gameState.lobbyCode;
+            
+            // Update clue and difficulty
+            document.getElementById('clueText').textContent = randomLocation.clue;
+            updateDifficultyBadge(randomLocation.difficulty);
+            
+            // Start timer
+            startTimer(randomLocation.time);
+            
+            console.log('Round started with location: ' + randomLocation.name);
+        }
+
+        // Update Difficulty Badge
         function updateDifficultyBadge(difficulty) {
-            difficultyBadge.textContent = getDifficultyText(difficulty);
-            difficultyBadge.className = `text-xs px-2 py-1 rounded-full font-medium difficulty-${difficulty}`;
-        }
-
-        // Get difficulty text
-        function getDifficultyText(difficulty) {
+            const badge = document.getElementById('difficultyBadge');
             const texts = {
                 'easy': '🟢 Mudah',
-                'medium': '🟡 Sedang', 
+                'medium': '🟡 Sedang',
                 'hard': '🔴 Sulit'
             };
-            return texts[difficulty] || difficulty;
+            badge.textContent = texts[difficulty] || difficulty;
+            badge.className = `text-xs px-2 py-1 rounded-full font-medium difficulty-${difficulty}`;
         }
 
-        // START ROUND TIMER dengan countdown
-        function startRoundTimer() {
-            if (gameState.roundTimer) {
-                clearInterval(gameState.roundTimer);
-            }
-
-            gameState.timeLeft = gameState.timeLimit;
-            updateTimerDisplay();
-
-            gameState.roundTimer = setInterval(() => {
-                gameState.timeLeft--;
-                gameState.roundTime++;
+        // Start Timer
+        function startTimer(seconds) {
+            let timeLeft = seconds;
+            const timerElement = document.getElementById('timerValue');
+            const timerContainer = document.getElementById('roundTimer');
+            
+            timerElement.textContent = timeLeft;
+            
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
                 
-                updateTimerDisplay();
-
-                if (gameState.timeLeft <= 0) {
-                    clearInterval(gameState.roundTimer);
-                    if (!gameState.hasGuessed) {
-                        // Auto submit random guess jika waktu habis
+                // Update timer color
+                timerContainer.classList.remove('timer-warning', 'timer-critical', 'bg-green-500');
+                if (timeLeft <= 5) {
+                    timerContainer.classList.add('timer-critical');
+                } else if (timeLeft <= 10) {
+                    timerContainer.classList.add('timer-warning');
+                } else {
+                    timerContainer.classList.add('bg-green-500');
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    if (gameState.roundActive) {
                         autoSubmitGuess();
                     }
                 }
             }, 1000);
         }
 
-        // Update timer display dengan warna
-        function updateTimerDisplay() {
-            timerValue.textContent = gameState.timeLeft;
+        // Handle Map Click
+        function handleMapClick(latlng) {
+            if (!gameState.roundActive) return;
             
-            // Update warna timer berdasarkan waktu tersisa
-            roundTimer.classList.remove('timer-warning', 'timer-critical', 'bg-green-500', 'bg-yellow-500', 'bg-red-500');
-            
-            if (gameState.timeLeft <= 5) {
-                roundTimer.classList.add('timer-critical');
-            } else if (gameState.timeLeft <= 10) {
-                roundTimer.classList.add('timer-warning');
-            } else {
-                roundTimer.classList.add('bg-green-500');
+            // Create guess marker
+            if (gameState.guessMarker) {
+                gameState.map.removeLayer(gameState.guessMarker);
             }
+            
+            gameState.guessMarker = L.circleMarker(latlng, {
+                radius: 8,
+                color: '#3b82f6',
+                fillColor: '#3b82f6',
+                fillOpacity: 0.7
+            }).addTo(gameState.map);
+            
+            // Enable lock button
+            document.getElementById('lockGuessBtn').classList.remove('bg-green-500');
+            document.getElementById('lockGuessBtn').classList.add('bg-blue-500');
+            document.getElementById('lockGuessBtn').textContent = '✅ Konfirmasi Tebakan';
         }
 
-        // Auto submit guess ketika waktu habis
+        // Auto Submit Guess
         function autoSubmitGuess() {
-            if (gameState.hasGuessed || !gameState.roundActive) return;
-
-            // Buat tebakan random di sekitar lokasi asli
-            const randomOffset = () => (Math.random() - 0.5) * 0.5;
-            const randomGuess = {
-                lat: gameState.currentLocation.lat + randomOffset(),
-                lng: gameState.currentLocation.lng + randomOffset()
-            };
-
-            gameState.currentGuess = randomGuess;
-            gameState.hasGuessed = true;
-            makeGuess(randomGuess);
+            if (!gameState.roundActive) return;
             
+            const randomGuess = {
+                lat: gameState.currentLocation.lat + (Math.random() - 0.5) * 0.1,
+                lng: gameState.currentLocation.lng + (Math.random() - 0.5) * 0.1
+            };
+            
+            submitGuess(randomGuess);
             alert('Waktu habis! Tebakan otomatis dikirim.');
         }
 
-        // MAKE GUESS dengan wait system
-        function makeGuess(guessLocation) {
-            if (!gameState.roundActive || gameState.hasGuessed) return;
-            
+        // Submit Guess
+        function submitGuess(guessLocation) {
             gameState.roundActive = false;
-            gameState.hasGuessed = true;
-            clearInterval(gameState.roundTimer);
-
-            // Calculate distance and score dengan time bonus
+            
+            // Calculate distance
             const distance = calculateDistance(
-                gameState.currentLocation.lat, 
+                gameState.currentLocation.lat,
                 gameState.currentLocation.lng,
-                guessLocation.lat, 
+                guessLocation.lat,
                 guessLocation.lng
             );
             
-            const roundScore = calculateScore(distance, gameState.roundTime, gameState.timeLeft);
-            gameState.score += roundScore;
-            gameState.roundScores.push(roundScore);
-
-            // Show results di map
-            showRoundResult(guessLocation, distance, roundScore);
+            // Calculate score
+            const score = Math.max(0, 5000 - (distance / 1000) * 100);
             
-            // Update player status ke finished
-            updatePlayerStatus('finished', roundScore, distance);
-
-            console.log(`Guess made - Score: ${roundScore}, Distance: ${distance}m, Time Used: ${gameState.roundTime}s`);
-
-            // Tampilkan waiting screen
-            showWaitingForPlayers();
+            // Show results
+            showRoundResult(guessLocation, distance, score);
         }
 
-        // Calculate score dengan time bonus dari sisa waktu
-        function calculateScore(distance, timeUsed, timeLeft) {
-            const baseScore = 5000;
-            const maxDistance = 20000000;
-            const distancePenalty = Math.min(distance / maxDistance, 1) * baseScore;
+        // Calculate Distance
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
             
-            // Time bonus dari sisa waktu (semakin banyak sisa waktu, semakin tinggi bonus)
-            const timeBonus = (timeLeft / gameState.timeLimit) * 1000;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
             
-            // Difficulty multiplier
-            const difficultyMultiplier = {
-                'easy': 0.8,
-                'medium': 1.0,
-                'hard': 1.2
-            };
-            
-            const multiplier = difficultyMultiplier[gameState.currentDifficulty] || 1.0;
-            
-            return Math.max(0, (baseScore - distancePenalty + timeBonus) * multiplier);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
 
-        // Show waiting for players screen
-        function showWaitingForPlayers() {
-            waitingForPlayers.classList.remove('hidden');
-            updateWaitingProgress();
+        // Show Round Result
+        function showRoundResult(guessLocation, distance, score) {
+            // Show answer marker
+            L.circleMarker([gameState.currentLocation.lat, gameState.currentLocation.lng], {
+                radius: 10,
+                color: '#ef4444',
+                fillColor: '#ef4444',
+                fillOpacity: 1
+            }).addTo(gameState.map).bindTooltip('Lokasi Sebenarnya');
             
-            // Start polling untuk progress pemain lain
-            const waitInterval = setInterval(() => {
-                updateWaitingProgress();
+            // Draw line
+            L.polyline([
+                [guessLocation.lat, guessLocation.lng],
+                [gameState.currentLocation.lat, gameState.currentLocation.lng]
+            ], {
+                color: '#ef4444',
+                weight: 2,
+                opacity: 0.7
+            }).addTo(gameState.map);
+            
+            // Show result
+            const distanceText = distance >= 1000 
+                ? `${(distance / 1000).toFixed(2)} km` 
+                : `${Math.round(distance)} meter`;
                 
-                const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
-                if (currentLobby) {
-                    const finishedPlayers = Object.values(currentLobby.players).filter(p => p.status === 'finished').length;
-                    const totalPlayers = Object.keys(currentLobby.players).length;
-                    
-                    // Jika semua pemain selesai, lanjut ke results
-                    if (finishedPlayers >= totalPlayers) {
-                        clearInterval(waitInterval);
-                        showRoundResults();
-                    }
+            document.getElementById('distanceResult').textContent = `Jarak: ${distanceText}`;
+            document.getElementById('roundScore').textContent = `Skor: ${Math.round(score)}`;
+            document.getElementById('roundResult').classList.remove('hidden');
+            
+            // Show next round button after delay
+            setTimeout(() => {
+                document.getElementById('nextRoundBtn').classList.remove('hidden');
+            }, 3000);
+        }
+
+        // Loading Functions
+        function updateLoadingDetail(text) {
+            loadingDetail.textContent = text;
+        }
+
+        function showLoadingError(message) {
+            loadingError.textContent = message;
+            loadingError.classList.remove('hidden');
+        }
+
+        function hideLoadingAndShowApp() {
+            globalLoading.style.opacity = '0';
+            setTimeout(() => {
+                globalLoading.classList.add('hidden');
+                app.classList.remove('hidden');
+                console.log('App loaded successfully');
+            }, 500);
+        }
+
+        // Add event listener for lock guess button
+        document.addEventListener('DOMContentLoaded', function() {
+            // This will run after the basic DOM is loaded
+            document.getElementById('lockGuessBtn').addEventListener('click', function() {
+                if (gameState.guessMarker && gameState.roundActive) {
+                    const guessLocation = gameState.guessMarker.getLatLng();
+                    submitGuess(guessLocation);
+                } else {
+                    alert('Silakan klik peta terlebih dahulu untuk menebak!');
+                }
+            });
+            
+            document.getElementById('nextRoundBtn').addEventListener('click', function() {
+                gameState.currentRound++;
+                if (gameState.currentRound > gameState.totalRounds) {
+                    endGame();
+                } else {
+                    startRound();
+                    document.getElementById('roundResult').classList.add('hidden');
+                    document.getElementById('nextRoundBtn').classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('hintBtn').addEventListener('click', function() {
+                alert('Fitur petunjuk akan datang!');
+            });
+            
+            document.getElementById('changeViewBtn').addEventListener('click', function() {
+                alert('Fitur ganti peta akan datang!');
+            });
+        });
+
+        // End Game
+        function endGame() {
+            document.getElementById('winnerName').textContent = gameState.playerName;
+            document.getElementById('winnerScore').innerHTML = `Skor: <span class="font-bold">${Math.round(gameState.score)}</span>`;
+            document.getElementById('winnerScreen').classList.remove('hidden');
+            
+            let countdown = 10;
+            const countdownElement = document.getElementById('countdown');
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                countdownElement.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    returnToLobby();
                 }
             }, 1000);
         }
 
-        // Update waiting progress
-        function updateWaitingProgress() {
-            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
-            if (currentLobby) {
-                const finishedPlayers = Object.values(currentLobby.players).filter(p => p.status === 'finished').length;
-                const totalPlayersCount = Object.keys(currentLobby.players).length;
-                
-                playersFinished.textContent = finishedPlayers;
-                totalPlayers.textContent = totalPlayersCount;
-            }
-        }
-
-        // UPDATE PLAYER STATUS dengan distance
-        function updatePlayerStatus(status, score = null, distance = null) {
-            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
-            if (!currentLobby) return;
-
-            currentLobby.players[gameState.playerId].status = status;
-            if (score !== null) {
-                currentLobby.players[gameState.playerId].score = gameState.score;
-            }
+        // Return to Lobby
+        function returnToLobby() {
+            gameState.currentRound = 0;
+            gameState.score = 0;
+            gameState.gameStarted = false;
             
-            // Simpan round result
-            if (!currentLobby.roundResults) {
-                currentLobby.roundResults = {};
-            }
+            document.getElementById('winnerScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('lobbyScreen').classList.remove('hidden');
             
-            currentLobby.roundResults[gameState.playerId] = {
-                name: gameState.playerName,
-                score: Math.round(score),
-                distance: Math.round(distance),
-                time: gameState.roundTime,
-                timeLeft: gameState.timeLeft
-            };
-
-            saveLobbyToStorage(gameState.lobbyCode, currentLobby);
-        }
-
-        // SHOW ROUND RESULTS dengan data semua pemain
-        function showRoundResults() {
-            waitingForPlayers.classList.add('hidden');
-            
-            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
-            if (!currentLobby || !currentLobby.roundResults) return;
-
-            resultsRoundNumber.textContent = gameState.currentRound;
-            
-            // Build results table
-            let html = `
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="p-1 text-left text-xs">Pemain</th>
-                            <th class="p-1 text-right text-xs">Skor</th>
-                            <th class="p-1 text-right text-xs">Jarak</th>
-                            <th class="p-1 text-right text-xs">Waktu</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            const resultsArray = Object.values(currentLobby.roundResults)
-                .sort((a, b) => b.score - a.score);
-            
-            resultsArray.forEach((result, index) => {
-                const distanceText = result.distance >= 1000 
-                    ? `${(result.distance / 1000).toFixed(1)}km` 
-                    : `${result.distance}m`;
-                    
-                const isCurrentPlayer = result.name === gameState.playerName;
-                
-                html += `
-                    <tr class="${isCurrentPlayer ? 'bg-blue-50' : ''} ${index === 0 ? 'font-bold' : ''}">
-                        <td class="p-1 text-xs">${result.name} ${isCurrentPlayer ? '(Anda)' : ''}</td>
-                        <td class="p-1 text-right text-xs">${Math.round(result.score)}</td>
-                        <td class="p-1 text-right text-xs">${distanceText}</td>
-                        <td class="p-1 text-right text-xs">${result.time}s</td>
-                    </tr>
-                `;
-            });
-            
-            html += '</tbody></table>';
-            resultsTable.innerHTML = html;
-            roundResults.classList.remove('hidden');
-
-            // Tampilkan next round button untuk host atau info waiting
-            if (gameState.isHost) {
-                nextRoundBtn.classList.remove('hidden');
-                nextRoundInfo.classList.add('hidden');
-            } else {
-                nextRoundBtn.classList.add('hidden');
-                nextRoundInfo.classList.remove('hidden');
-            }
-        }
-
-        // NEXT ROUND dengan wait system
-        function nextRound() {
-            if (!gameState.isHost) return;
-            
-            gameState.currentRound++;
-            
-            if (gameState.currentRound > gameState.totalRounds) {
-                endGame();
-                return;
-            }
-
-            // Reset round results dan player status
-            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
-            if (currentLobby) {
-                currentLobby.currentRound = gameState.currentRound;
-                currentLobby.roundResults = {};
-                
-                // Reset semua player status ke waiting
-                Object.keys(currentLobby.players).forEach(playerId => {
-                    currentLobby.players[playerId].status = 'waiting';
+            // Clear map
+            if (gameState.map) {
+                gameState.map.eachLayer(function(layer) {
+                    if (layer instanceof L.CircleMarker || layer instanceof L.Polyline) {
+                        gameState.map.removeLayer(layer);
+                    }
                 });
-                
-                saveLobbyToStorage(gameState.lobbyCode, currentLobby);
             }
-
-            startRound();
         }
 
-        // [Fungsi-fungsi lainnya tetap sama...]
-        // Untuk menjaga panjang response, saya skip bagian yang repetitive
-
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', init);
+        // Start the application when page loads
+        window.addEventListener('load', init);
     </script>
 </body>
-                            </html>
+    </html>
