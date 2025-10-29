@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maps Guesser - Enhanced Map</title>
+    <title>Maps Guesser - Fixed Game & 3D Map</title>
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,15 +12,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Leaflet Fullscreen -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-fullscreen/dist/leaflet.fullscreen.css" />
-    <script src="https://unpkg.com/leaflet-fullscreen/dist/Leaflet.fullscreen.min.js"></script>
-    
-    <!-- Leaflet Motion -->
-    <script src="https://unpkg.com/leaflet.motion/dist/leaflet.motion.min.js"></script>
+    <!-- Leaflet Elevation -->
+    <link rel="stylesheet" href="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.css" />
+    <script src="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.min.js"></script>
 
     <style>
-        /* Animasi sederhana untuk notifikasi skor */
+        /* Animasi dan styles */
         @keyframes scorePop {
             0% { transform: scale(1); }
             50% { transform: scale(1.2); }
@@ -31,7 +28,6 @@
             animation: scorePop 0.5s ease-in-out;
         }
         
-        /* Custom scrollbar */
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
@@ -46,18 +42,12 @@
             border-radius: 10px;
         }
         
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-        
-        /* Style untuk map container */
         #map {
             height: 100%;
             width: 100%;
             cursor: crosshair !important;
         }
         
-        /* Custom marker styles */
         .guess-marker {
             background-color: #3b82f6;
             border: 3px solid white;
@@ -86,26 +76,44 @@
             100% { transform: scale(1); opacity: 1; }
         }
         
-        /* Winner animation */
+        .winner-glow {
+            animation: winnerGlow 2s infinite;
+        }
+        
         @keyframes winnerGlow {
             0% { box-shadow: 0 0 20px gold; }
             50% { box-shadow: 0 0 40px gold; }
             100% { box-shadow: 0 0 20px gold; }
         }
         
-        .winner-glow {
-            animation: winnerGlow 2s infinite;
+        /* Loading styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
         }
         
-        /* Player status colors */
-        .player-waiting { background-color: #fbbf24; }
-        .player-guessing { background-color: #3b82f6; }
-        .player-finished { background-color: #10b981; }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
         
-        /* Connection status */
-        .status-online { background-color: #10b981; }
-        .status-offline { background-color: #ef4444; }
-        .status-local { background-color: #f59e0b; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         
         /* Map controls */
         .map-controls {
@@ -119,55 +127,44 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         
-        /* Crosshair cursor for map */
-        .leaflet-container {
-            cursor: crosshair !important;
+        /* 3D Effect */
+        .map-3d {
+            transform-style: preserve-3d;
+            perspective: 1000px;
         }
         
-        /* Loading overlay */
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            color: white;
-            font-size: 1.5rem;
+        .tile-3d {
+            transform: translateZ(10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
         
-        /* Street View style container */
-        .street-view-container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background: rgba(0,0,0,0.8);
-            color: white;
+        /* Elevation profile */
+        .elevation-control {
+            background: white;
             padding: 10px;
             border-radius: 8px;
-            font-size: 0.9rem;
-        }
-        
-        /* 3D building layer */
-        .building-layer {
-            background: rgba(74, 144, 226, 0.1);
-            border: 1px solid rgba(74, 144, 226, 0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            margin: 10px;
         }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
-    <div id="app" class="min-h-screen flex flex-col">
+    <!-- Loading Overlay -->
+    <div id="globalLoading" class="loading-overlay">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <div class="text-xl">Memuat Game Maps Guesser...</div>
+            <div id="loadingDetail" class="text-sm mt-2 text-gray-300">Menyiapkan sistem</div>
+        </div>
+    </div>
+
+    <div id="app" class="min-h-screen flex flex-col hidden">
         <!-- Header -->
         <header class="bg-blue-600 text-white p-4 shadow-md">
             <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-2xl font-bold">Maps Guesser - Enhanced Map</h1>
-                <div id="connectionStatus" class="status-local px-3 py-1 rounded text-sm">
-                    Local Network
+                <h1 class="text-2xl font-bold">Maps Guesser - 3D Map</h1>
+                <div id="connectionStatus" class="bg-green-500 px-3 py-1 rounded text-sm">
+                    ✅ Online
                 </div>
             </div>
         </header>
@@ -184,17 +181,22 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Nama Pemain</label>
                             <input type="text" id="playerName" placeholder="Masukkan nama Anda" 
-                                   class="w-full border border-gray-300 rounded-md p-3 text-lg" maxlength="15"
-                                   value="Pemain1">
+                                   class="w-full border border-gray-300 rounded-md p-3 text-lg" 
+                                   value="Pemain1" maxlength="15">
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Buat atau Gabung Lobby</label>
-                            <input type="text" id="lobbyCode" placeholder="Kode Lobby (kosongkan untuk buat baru)" 
-                                   class="w-full border border-gray-300 rounded-md p-3 mb-2"
-                                   value="ABC123">
+                            <div class="flex space-x-2 mb-2">
+                                <input type="text" id="lobbyCode" placeholder="Kode Lobby" 
+                                       class="flex-1 border border-gray-300 rounded-md p-3"
+                                       value="ABC123" maxlength="6">
+                                <button id="generateCodeBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 rounded transition">
+                                    🔄
+                                </button>
+                            </div>
                             <button id="joinLobbyBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition">
-                                Buat/Gabung Lobby
+                                🎮 Buat/Gabung Lobby
                             </button>
                         </div>
                     </div>
@@ -213,23 +215,23 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Mode Peta</label>
                             <select id="mapTypeSelect" class="w-full border border-gray-300 rounded-md p-3">
-                                <option value="streets">Street View</option>
-                                <option value="satellite">Satellite 3D</option>
-                                <option value="terrain">Topography</option>
-                                <option value="hybrid">Hybrid</option>
+                                <option value="satellite">🛰️ Satellite 3D</option>
+                                <option value="terrain">🏔️ Topography</option>
+                                <option value="streets">🏙️ Street View</option>
+                                <option value="hybrid">🌍 Hybrid</option>
                             </select>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Region</label>
                             <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-3">
-                                <option value="world">Seluruh Dunia</option>
-                                <option value="asia">Asia</option>
-                                <option value="europe">Eropa</option>
-                                <option value="north-america">Amerika Utara</option>
-                                <option value="south-america">Amerika Selatan</option>
-                                <option value="africa">Afrika</option>
-                                <option value="oceania">Oseania</option>
+                                <option value="world">🌎 Seluruh Dunia</option>
+                                <option value="asia">🧭 Asia</option>
+                                <option value="europe">🏛️ Eropa</option>
+                                <option value="north-america">🗽 Amerika Utara</option>
+                                <option value="south-america">💃 Amerika Selatan</option>
+                                <option value="africa">🦁 Afrika</option>
+                                <option value="oceania">🦘 Oseania</option>
                             </select>
                         </div>
                     </div>
@@ -237,76 +239,83 @@
                 
                 <!-- Players in Lobby -->
                 <div class="mt-8">
-                    <h3 class="text-lg font-bold mb-4">Pemain di Lobby (<span id="playerCount">0</span>/5)</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold">Pemain di Lobby (<span id="playerCount">0</span>/5)</h3>
+                        <div id="lobbyStatus" class="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded">
+                            💤 Menunggu pemain...
+                        </div>
+                    </div>
                     <div id="playersList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <!-- Players will be listed here -->
+                        <div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">
+                            Belum ada pemain
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Lobby Controls -->
                 <div class="mt-6 flex space-x-4">
                     <button id="startGameBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition hidden">
-                        Mulai Game
+                        🚀 Mulai Game
                     </button>
                     <button id="leaveLobbyBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded transition hidden">
-                        Keluar Lobby
+                        ❌ Keluar Lobby
                     </button>
                 </div>
 
-                <!-- Demo Players (for testing) -->
+                <!-- Demo Players -->
                 <div class="mt-6 p-4 bg-gray-100 rounded-lg">
                     <h4 class="font-bold mb-2">Demo Multiplayer (Testing):</h4>
-                    <div class="flex space-x-2">
-                        <button id="addDemoPlayer1" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm">
-                            Tambah Pemain 2
+                    <div class="flex space-x-2 flex-wrap gap-2">
+                        <button id="addDemoPlayer1" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
+                            👤 Tambah Pemain 2
                         </button>
-                        <button id="addDemoPlayer2" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm">
-                            Tambah Pemain 3
+                        <button id="addDemoPlayer2" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
+                            👤 Tambah Pemain 3
                         </button>
-                        <button id="addDemoPlayer3" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm">
-                            Tambah Pemain 4
+                        <button id="addDemoPlayer3" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
+                            👤 Tambah Pemain 4
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- Game Screen -->
-            <div id="gameScreen" class="hidden relative">
-                <!-- Map Controls -->
-                <div class="map-controls">
-                    <div class="space-y-2">
-                        <button id="zoomInBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                            <span class="text-lg font-bold">+</span>
-                        </button>
-                        <button id="zoomOutBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                            <span class="text-lg font-bold">-</span>
-                        </button>
-                        <button id="fullscreenBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                            <span class="text-sm">⛶</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Street View Info -->
-                <div id="streetViewInfo" class="street-view-container hidden">
-                    <div>🎯 <strong>Street View Mode</strong></div>
-                    <div>Klik di peta untuk menebak lokasi!</div>
-                </div>
-
+            <div id="gameScreen" class="hidden">
                 <div class="flex flex-col lg:flex-row gap-4">
                     <!-- Map Container -->
                     <div class="flex-1 bg-white rounded-lg shadow-md overflow-hidden relative">
                         <div id="mapLoading" class="loading-overlay hidden">
                             <div class="text-center">
-                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                                <div>Memuat peta...</div>
+                                <div class="loading-spinner mx-auto mb-4"></div>
+                                <div>Memuat peta 3D...</div>
                             </div>
                         </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <div class="space-y-2">
+                                <button id="zoomInBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
+                                    <span class="text-lg font-bold">+</span>
+                                </button>
+                                <button id="zoomOutBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
+                                    <span class="text-lg font-bold">-</span>
+                                </button>
+                                <button id="toggle3DBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
+                                    <span class="text-sm">3D</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div id="map" class="w-full h-96 lg:h-full"></div>
                         
                         <!-- Guess Instructions -->
-                        <div id="guessInstructions" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg text-sm hidden">
-                            🎯 <strong>Klik di mana saja di peta untuk menebak lokasi!</strong>
+                        <div id="guessInstructions" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg text-sm">
+                            🎯 <strong>Klik di peta untuk menebak lokasi!</strong>
+                        </div>
+
+                        <!-- Round Info -->
+                        <div id="roundInfo" class="absolute top-4 left-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hidden">
+                            <strong>Ronde <span id="currentRoundDisplay">1</span>/<span id="totalRoundsDisplay">5</span></strong>
                         </div>
                     </div>
                     
@@ -319,21 +328,21 @@
                                 <span class="font-bold">Lobby: <span id="currentLobbyCode">-</span></span>
                             </div>
                             <div class="mt-2 text-sm">
-                                <span id="roundTimer" class="bg-yellow-100 px-2 py-1 rounded">Waktu: 0s</span>
+                                <span id="roundTimer" class="bg-yellow-100 px-2 py-1 rounded">⏱️ Waktu: 0s</span>
                             </div>
                         </div>
                         
                         <!-- Location Info -->
-                        <div id="locationInfo" class="mb-4 p-3 bg-green-50 rounded-lg hidden">
+                        <div id="locationInfo" class="mb-4 p-3 bg-green-50 rounded-lg">
                             <h3 class="font-bold mb-2">📍 Info Lokasi</h3>
                             <div id="locationDetails" class="text-sm">
-                                Sedang memuat informasi lokasi...
+                                Pilih region dan mulai game!
                             </div>
                         </div>
                         
                         <!-- Players Status -->
                         <div class="mb-4">
-                            <h3 class="font-bold mb-2">Status Pemain</h3>
+                            <h3 class="font-bold mb-2">👥 Status Pemain</h3>
                             <div id="playersStatus" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                                 <!-- Players status will be shown here -->
                             </div>
@@ -341,25 +350,20 @@
                         
                         <!-- Game Controls -->
                         <div id="gameControls" class="space-y-3 mb-6">
-                            <div class="bg-yellow-50 p-3 rounded-lg">
-                                <p class="text-sm text-yellow-800">
-                                    <strong>💡 Cara Main:</strong> Telusuri peta dan klik untuk menebak lokasi!
-                                </p>
-                            </div>
                             <button id="lockGuessBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition">
-                                🔒 Kunci Tebakan Sekarang
+                                🔒 Kunci Tebakan
                             </button>
                             <button id="hintBtn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition">
-                                Gunakan Petunjuk (<span id="hintCount">3</span> tersisa)
+                                💡 Gunakan Petunjuk (<span id="hintCount">3</span>)
                             </button>
-                            <button id="panoramaBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition">
-                                🏙️ Tampilkan Street View
+                            <button id="changeViewBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition">
+                                🛰️ Ganti Tampilan Peta
                             </button>
                         </div>
                         
                         <!-- Round Result -->
                         <div id="roundResult" class="hidden p-3 bg-gray-100 rounded-lg mb-4">
-                            <h3 class="font-bold text-lg mb-2">Hasil Ronde</h3>
+                            <h3 class="font-bold text-lg mb-2">🎯 Hasil Ronde</h3>
                             <p id="distanceResult" class="text-sm"></p>
                             <p id="roundScore" class="text-lg font-bold"></p>
                         </div>
@@ -368,12 +372,12 @@
                 
                 <!-- Round Results Table -->
                 <div id="roundResults" class="mt-4 bg-white rounded-lg shadow-md p-4 hidden">
-                    <h3 class="text-lg font-bold mb-3">Hasil Ronde Ini</h3>
+                    <h3 class="text-lg font-bold mb-3">📊 Hasil Ronde Ini</h3>
                     <div id="resultsTable" class="overflow-x-auto">
                         <!-- Results table will be populated here -->
                     </div>
                     <button id="nextRoundBtn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
-                        Ronde Berikutnya
+                        ➡️ Ronde Berikutnya
                     </button>
                 </div>
             </div>
@@ -388,22 +392,11 @@
                 </div>
             </div>
         </main>
-        
-        <!-- Leaderboard -->
-        <aside class="container mx-auto p-4">
-            <div class="bg-white rounded-lg shadow-md p-4">
-                <h2 class="text-xl font-bold mb-4">Leaderboard</h2>
-                <div id="leaderboard" class="custom-scrollbar max-h-64 overflow-y-auto">
-                    <!-- Leaderboard entries will be populated here -->
-                </div>
-            </div>
-        </aside>
     </div>
 
     <script>
         // =============================================
-        // MAPS GUESSER - Enhanced Map Version
-        // Map yang lebih interaktif seperti Google Earth
+        // MAPS GUESSER - Fixed Game Start & 3D Map
         // =============================================
 
         // Game state
@@ -432,24 +425,25 @@
             players: {},
             currentRoundResults: [],
             currentGuess: null,
-            mapInitialized: false
+            mapInitialized: false,
+            is3DMode: false
         };
 
-        // Enhanced Map tile providers
+        // Enhanced Map providers dengan tile yang lebih detail
         const mapProviders = {
             streets: {
                 url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 maxZoom: 19
             },
             satellite: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                attribution: 'Tiles &copy; Esri',
                 maxZoom: 19
             },
             terrain: {
                 url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+                attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 maxZoom: 17
             },
             hybrid: {
@@ -460,87 +454,107 @@
             }
         };
 
-        // Region boundaries dengan lokasi menarik
+        // Region boundaries dengan kota-kota spesifik
         const regions = {
             'world': { 
-                minLat: -90, maxLat: 90, minLng: -180, maxLng: 180,
-                interestingLocations: [
-                    { lat: 40.7128, lng: -74.0060, name: "New York" },
-                    { lat: 51.5074, lng: -0.1278, name: "London" },
-                    { lat: 35.6762, lng: 139.6503, name: "Tokyo" },
-                    { lat: -33.8688, lng: 151.2093, name: "Sydney" }
+                minLat: -85, maxLat: 85, minLng: -180, maxLng: 180,
+                cities: [
+                    { lat: 40.7128, lng: -74.0060, name: "New York, USA" },
+                    { lat: 51.5074, lng: -0.1278, name: "London, UK" },
+                    { lat: 35.6762, lng: 139.6503, name: "Tokyo, Japan" },
+                    { lat: -33.8688, lng: 151.2093, name: "Sydney, Australia" },
+                    { lat: -23.5505, lng: -46.6333, name: "Sao Paulo, Brazil" }
                 ]
             },
             'asia': { 
-                minLat: -10, maxLat: 80, minLng: 25, maxLng: 180,
-                interestingLocations: [
-                    { lat: 35.6762, lng: 139.6503, name: "Tokyo" },
+                minLat: -10, maxLat: 55, minLng: 60, maxLng: 150,
+                cities: [
+                    { lat: 35.6762, lng: 139.6503, name: "Tokyo, Japan" },
                     { lat: 1.3521, lng: 103.8198, name: "Singapore" },
                     { lat: 22.3193, lng: 114.1694, name: "Hong Kong" },
-                    { lat: 13.7563, lng: 100.5018, name: "Bangkok" }
+                    { lat: 13.7563, lng: 100.5018, name: "Bangkok, Thailand" },
+                    { lat: 39.9042, lng: 116.4074, name: "Beijing, China" }
                 ]
             },
             'europe': { 
-                minLat: 35, maxLat: 72, minLng: -25, maxLng: 60,
-                interestingLocations: [
-                    { lat: 51.5074, lng: -0.1278, name: "London" },
-                    { lat: 48.8566, lng: 2.3522, name: "Paris" },
-                    { lat: 52.5200, lng: 13.4050, name: "Berlin" },
-                    { lat: 41.9028, lng: 12.4964, name: "Rome" }
+                minLat: 35, maxLat: 70, minLng: -25, maxLng: 50,
+                cities: [
+                    { lat: 51.5074, lng: -0.1278, name: "London, UK" },
+                    { lat: 48.8566, lng: 2.3522, name: "Paris, France" },
+                    { lat: 52.5200, lng: 13.4050, name: "Berlin, Germany" },
+                    { lat: 41.9028, lng: 12.4964, name: "Rome, Italy" },
+                    { lat: 52.3676, lng: 4.9041, name: "Amsterdam, Netherlands" }
                 ]
             },
             'north-america': { 
-                minLat: 5, maxLat: 85, minLng: -170, maxLng: -50,
-                interestingLocations: [
-                    { lat: 40.7128, lng: -74.0060, name: "New York" },
-                    { lat: 34.0522, lng: -118.2437, name: "Los Angeles" },
-                    { lat: 43.6532, lng: -79.3832, name: "Toronto" },
-                    { lat: 19.4326, lng: -99.1332, name: "Mexico City" }
+                minLat: 15, maxLat: 75, minLng: -170, maxLng: -55,
+                cities: [
+                    { lat: 40.7128, lng: -74.0060, name: "New York, USA" },
+                    { lat: 34.0522, lng: -118.2437, name: "Los Angeles, USA" },
+                    { lat: 19.4326, lng: -99.1332, name: "Mexico City, Mexico" },
+                    { lat: 43.6532, lng: -79.3832, name: "Toronto, Canada" },
+                    { lat: 41.8781, lng: -87.6298, name: "Chicago, USA" }
                 ]
             },
             'south-america': { 
                 minLat: -55, maxLat: 15, minLng: -85, maxLng: -30,
-                interestingLocations: [
-                    { lat: -23.5505, lng: -46.6333, name: "Sao Paulo" },
-                    { lat: -34.6037, lng: -58.3816, name: "Buenos Aires" },
-                    { lat: -12.0464, lng: -77.0428, name: "Lima" },
-                    { lat: -33.4489, lng: -70.6693, name: "Santiago" }
+                cities: [
+                    { lat: -23.5505, lng: -46.6333, name: "Sao Paulo, Brazil" },
+                    { lat: -34.6037, lng: -58.3816, name: "Buenos Aires, Argentina" },
+                    { lat: -12.0464, lng: -77.0428, name: "Lima, Peru" },
+                    { lat: -33.4489, lng: -70.6693, name: "Santiago, Chile" },
+                    { lat: 4.7109, lng: -74.0721, name: "Bogota, Colombia" }
                 ]
             },
             'africa': { 
                 minLat: -35, maxLat: 38, minLng: -25, maxLng: 55,
-                interestingLocations: [
-                    { lat: -26.2041, lng: 28.0473, name: "Johannesburg" },
-                    { lat: 30.0444, lng: 31.2357, name: "Cairo" },
-                    { lat: 6.5244, lng: 3.3792, name: "Lagos" },
-                    { lat: -1.2921, lng: 36.8219, name: "Nairobi" }
+                cities: [
+                    { lat: -26.2041, lng: 28.0473, name: "Johannesburg, South Africa" },
+                    { lat: 30.0444, lng: 31.2357, name: "Cairo, Egypt" },
+                    { lat: 6.5244, lng: 3.3792, name: "Lagos, Nigeria" },
+                    { lat: -1.2921, lng: 36.8219, name: "Nairobi, Kenya" },
+                    { lat: 33.5731, lng: -7.5898, name: "Casablanca, Morocco" }
                 ]
             },
             'oceania': { 
                 minLat: -50, maxLat: 0, minLng: 110, maxLng: 180,
-                interestingLocations: [
-                    { lat: -33.8688, lng: 151.2093, name: "Sydney" },
-                    { lat: -37.8136, lng: 144.9631, name: "Melbourne" },
-                    { lat: -36.8485, lng: 174.7633, name: "Auckland" },
-                    { lat: -41.2865, lng: 174.7762, name: "Wellington" }
+                cities: [
+                    { lat: -33.8688, lng: 151.2093, name: "Sydney, Australia" },
+                    { lat: -37.8136, lng: 144.9631, name: "Melbourne, Australia" },
+                    { lat: -36.8485, lng: 174.7633, name: "Auckland, New Zealand" },
+                    { lat: -41.2865, lng: 174.7762, name: "Wellington, New Zealand" },
+                    { lat: -17.7333, lng: 168.3273, name: "Port Vila, Vanuatu" }
                 ]
             }
         };
 
         // DOM Elements
+        const globalLoading = document.getElementById('globalLoading');
+        const app = document.getElementById('app');
+        const loadingDetail = document.getElementById('loadingDetail');
         const lobbyScreen = document.getElementById('lobbyScreen');
         const gameScreen = document.getElementById('gameScreen');
         const winnerScreen = document.getElementById('winnerScreen');
         const playerNameInput = document.getElementById('playerName');
         const lobbyCodeInput = document.getElementById('lobbyCode');
+        const generateCodeBtn = document.getElementById('generateCodeBtn');
         const joinLobbyBtn = document.getElementById('joinLobbyBtn');
         const startGameBtn = document.getElementById('startGameBtn');
         const leaveLobbyBtn = document.getElementById('leaveLobbyBtn');
         const playersList = document.getElementById('playersList');
         const playerCount = document.getElementById('playerCount');
-        const roundsSelect = document.getElementById('roundsSelect');
-        const mapTypeSelect = document.getElementById('mapTypeSelect');
-        const regionSelect = document.getElementById('regionSelect');
+        const lobbyStatus = document.getElementById('lobbyStatus');
+        const addDemoPlayer1 = document.getElementById('addDemoPlayer1');
+        const addDemoPlayer2 = document.getElementById('addDemoPlayer2');
+        const addDemoPlayer3 = document.getElementById('addDemoPlayer3');
+        const mapLoading = document.getElementById('mapLoading');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const toggle3DBtn = document.getElementById('toggle3DBtn');
+        const guessInstructions = document.getElementById('guessInstructions');
+        const roundInfo = document.getElementById('roundInfo');
+        const currentRoundDisplay = document.getElementById('currentRoundDisplay');
+        const totalRoundsDisplay = document.getElementById('totalRoundsDisplay');
         const currentRoundElement = document.getElementById('currentRound');
         const totalRoundsElement = document.getElementById('totalRounds');
         const currentLobbyCode = document.getElementById('currentLobbyCode');
@@ -548,8 +562,10 @@
         const playersStatus = document.getElementById('playersStatus');
         const lockGuessBtn = document.getElementById('lockGuessBtn');
         const hintBtn = document.getElementById('hintBtn');
-        const panoramaBtn = document.getElementById('panoramaBtn');
+        const changeViewBtn = document.getElementById('changeViewBtn');
         const hintCountElement = document.getElementById('hintCount');
+        const locationInfo = document.getElementById('locationInfo');
+        const locationDetails = document.getElementById('locationDetails');
         const roundResultElement = document.getElementById('roundResult');
         const distanceResultElement = document.getElementById('distanceResult');
         const roundScoreElement = document.getElementById('roundScore');
@@ -559,219 +575,498 @@
         const winnerName = document.getElementById('winnerName');
         const winnerScore = document.getElementById('winnerScore');
         const countdown = document.getElementById('countdown');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const leaderboardElement = document.getElementById('leaderboard');
-        const addDemoPlayer1 = document.getElementById('addDemoPlayer1');
-        const addDemoPlayer2 = document.getElementById('addDemoPlayer2');
-        const addDemoPlayer3 = document.getElementById('addDemoPlayer3');
-        const zoomInBtn = document.getElementById('zoomInBtn');
-        const zoomOutBtn = document.getElementById('zoomOutBtn');
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const guessInstructions = document.getElementById('guessInstructions');
-        const streetViewInfo = document.getElementById('streetViewInfo');
-        const locationInfo = document.getElementById('locationInfo');
-        const locationDetails = document.getElementById('locationDetails');
-        const mapLoading = document.getElementById('mapLoading');
 
-        // Demo players data
-        const demoPlayersData = [
-            { id: 'demo1', name: 'Pemain2', isHost: false },
-            { id: 'demo2', name: 'Pemain3', isHost: false },
-            { id: 'demo3', name: 'Pemain4', isHost: false }
-        ];
+        // Initialize application
+        async function init() {
+            try {
+                updateLoadingDetail("Menginisialisasi game...");
+                await simulateLoad(1000);
 
-        // Initialize the application
-        function init() {
-            // Initialize UI
-            setupEventListeners();
-            
-            // Load leaderboard
-            loadLeaderboard();
-            
-            // Generate player ID
-            gameState.playerId = generatePlayerId();
-            
-            // Load saved player name
+                updateLoadingDetail("Membuat ID player...");
+                gameState.playerId = generatePlayerId();
+                await simulateLoad(500);
+
+                updateLoadingDetail("Memuat pengaturan...");
+                loadSavedSettings();
+                await simulateLoad(500);
+
+                updateLoadingDetail("Menyiapkan antarmuka...");
+                setupEventListeners();
+                await simulateLoad(500);
+
+                // Sembunyikan loading dan tampilkan app
+                globalLoading.style.opacity = '0';
+                setTimeout(() => {
+                    globalLoading.classList.add('hidden');
+                    app.classList.remove('hidden');
+                }, 500);
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Error inisialisasi: ' + error.message);
+            }
+        }
+
+        // Simulate loading delay
+        function simulateLoad(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Update loading detail text
+        function updateLoadingDetail(text) {
+            if (loadingDetail) {
+                loadingDetail.textContent = text;
+            }
+        }
+
+        // Generate player ID
+        function generatePlayerId() {
+            return 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Load saved settings
+        function loadSavedSettings() {
             const savedName = localStorage.getItem('mapsGuesserPlayerName');
             if (savedName) {
                 playerNameInput.value = savedName;
+                gameState.playerName = savedName;
             }
             
-            // Set default lobby code
+            // Generate default lobby code
             lobbyCodeInput.value = generateLobbyCode();
-            
-            console.log("Game initialized with Enhanced Map");
         }
 
-        // Set up event listeners
+        // Setup event listeners
         function setupEventListeners() {
+            // Lobby actions
+            generateCodeBtn.addEventListener('click', generateNewLobbyCode);
             joinLobbyBtn.addEventListener('click', joinOrCreateLobby);
             startGameBtn.addEventListener('click', startGame);
             leaveLobbyBtn.addEventListener('click', leaveLobby);
+            
+            // Demo players
+            addDemoPlayer1.addEventListener('click', () => addDemoPlayer(0));
+            addDemoPlayer2.addEventListener('click', () => addDemoPlayer(1));
+            addDemoPlayer3.addEventListener('click', () => addDemoPlayer(2));
+            
+            // Game controls
             lockGuessBtn.addEventListener('click', lockGuess);
             hintBtn.addEventListener('click', useHint);
-            panoramaBtn.addEventListener('click', showPanoramaView);
+            changeViewBtn.addEventListener('click', changeMapView);
             nextRoundBtn.addEventListener('click', nextRound);
             
             // Map controls
             zoomInBtn.addEventListener('click', zoomIn);
             zoomOutBtn.addEventListener('click', zoomOut);
-            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            toggle3DBtn.addEventListener('click', toggle3DMode);
+        }
+
+        // Generate new lobby code
+        function generateNewLobbyCode() {
+            lobbyCodeInput.value = generateLobbyCode();
+        }
+
+        // Generate lobby code
+        function generateLobbyCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Join or create lobby
+        async function joinOrCreateLobby() {
+            const name = playerNameInput.value.trim();
+            if (name.length < 2) {
+                alert('Nama pemain minimal 2 karakter!');
+                return;
+            }
+
+            gameState.playerName = name;
+            localStorage.setItem('mapsGuesserPlayerName', name);
+
+            const code = lobbyCodeInput.value.trim().toUpperCase();
+            if (code.length !== 6) {
+                alert('Kode lobby harus 6 karakter!');
+                return;
+            }
+
+            // Show loading
+            joinLobbyBtn.disabled = true;
+            joinLobbyBtn.innerHTML = '🔄 Memproses...';
+
+            await simulateLoad(1000);
+
+            const existingLobby = getLobbyFromStorage(code);
+
+            if (existingLobby) {
+                await joinExistingLobby(code, existingLobby);
+            } else {
+                await createNewLobby(code);
+            }
+
+            joinLobbyBtn.disabled = false;
+            joinLobbyBtn.innerHTML = '🎮 Buat/Gabung Lobby';
+        }
+
+        // Get lobby from storage
+        function getLobbyFromStorage(code) {
+            try {
+                const lobbyData = localStorage.getItem(`lobby_${code}`);
+                return lobbyData ? JSON.parse(lobbyData) : null;
+            } catch {
+                return null;
+            }
+        }
+
+        // Join existing lobby
+        async function joinExistingLobby(code, existingLobby) {
+            if (existingLobby.players && Object.keys(existingLobby.players).length >= 5) {
+                throw new Error('Lobby sudah penuh! (Maksimal 5 pemain)');
+            }
+
+            if (existingLobby.gameState !== 'lobby') {
+                throw new Error('Game sudah dimulai di lobby ini!');
+            }
+
+            // Add player to lobby
+            if (!existingLobby.players) {
+                existingLobby.players = {};
+            }
+
+            existingLobby.players[gameState.playerId] = {
+                name: gameState.playerName,
+                score: 0,
+                status: 'waiting',
+                isHost: false,
+                joinTime: Date.now()
+            };
+
+            saveLobbyToStorage(code, existingLobby);
+
+            gameState.lobbyCode = code;
+            gameState.isHost = false;
+            gameState.lobbyData = existingLobby;
+
+            setupLobby();
+            alert(`Berhasil bergabung ke lobby ${code}!`);
+        }
+
+        // Create new lobby
+        async function createNewLobby(code) {
+            const lobbyData = {
+                code: code,
+                host: gameState.playerId,
+                players: {
+                    [gameState.playerId]: {
+                        name: gameState.playerName,
+                        score: 0,
+                        status: 'waiting',
+                        isHost: true,
+                        joinTime: Date.now()
+                    }
+                },
+                settings: {
+                    rounds: parseInt(document.getElementById('roundsSelect').value),
+                    mapType: document.getElementById('mapTypeSelect').value,
+                    region: document.getElementById('regionSelect').value
+                },
+                gameState: 'lobby',
+                createdTime: Date.now()
+            };
+
+            saveLobbyToStorage(code, lobbyData);
+
+            gameState.lobbyCode = code;
+            gameState.isHost = true;
+            gameState.lobbyData = lobbyData;
+
+            setupLobby();
+            alert(`Lobby ${code} berhasil dibuat!`);
+        }
+
+        // Save lobby to storage
+        function saveLobbyToStorage(code, data) {
+            try {
+                localStorage.setItem(`lobby_${code}`, JSON.stringify(data));
+                return true;
+            } catch (error) {
+                throw new Error('Gagal menyimpan data lobby');
+            }
+        }
+
+        // Setup lobby after join/create
+        function setupLobby() {
+            startGameBtn.classList.remove('hidden');
+            leaveLobbyBtn.classList.remove('hidden');
+            joinLobbyBtn.classList.add('hidden');
             
-            // Demo players buttons
-            addDemoPlayer1.addEventListener('click', () => addDemoPlayer(0));
-            addDemoPlayer2.addEventListener('click', () => addDemoPlayer(1));
-            addDemoPlayer3.addEventListener('click', () => addDemoPlayer(2));
+            updateLobbyDisplay();
+            startLobbyPolling();
+        }
+
+        // Update lobby display
+        function updateLobbyDisplay() {
+            if (!gameState.lobbyData) return;
             
-            // Map type change
-            mapTypeSelect.addEventListener('change', updateMapStyle);
+            const players = gameState.lobbyData.players;
+            const playerArray = Object.values(players);
             
-            // Enter key untuk join lobby
-            lobbyCodeInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') joinOrCreateLobby();
-            });
+            playerCount.textContent = playerArray.length;
+            updatePlayersList(playerArray);
             
-            playerNameInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') joinOrCreateLobby();
+            if (playerArray.length === 1) {
+                lobbyStatus.textContent = '💤 Menunggu pemain...';
+                lobbyStatus.className = 'text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded';
+            } else if (playerArray.length >= 2) {
+                lobbyStatus.textContent = `👍 ${playerArray.length}/5 pemain - Siap!`;
+                lobbyStatus.className = 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded';
+            }
+            
+            if (gameState.isHost && playerArray.length >= 1) {
+                startGameBtn.classList.remove('hidden');
+            }
+        }
+
+        // Update players list
+        function updatePlayersList(players) {
+            playersList.innerHTML = '';
+            
+            if (players.length === 0) {
+                playersList.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">Belum ada pemain</div>';
+                return;
+            }
+            
+            players.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = `p-3 rounded-lg text-center ${
+                    player.isHost ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-100'
+                }`;
+                
+                playerElement.innerHTML = `
+                    <div class="font-bold text-sm">${player.name}</div>
+                    <div class="text-xs text-gray-600 mt-1">${player.isHost ? '🎮 Host' : '👤 Player'}</div>
+                    <div class="text-xs mt-1 px-2 py-1 rounded-full bg-yellow-200 text-yellow-800">${player.status}</div>
+                `;
+                
+                playersList.appendChild(playerElement);
             });
         }
 
-        // Initialize Enhanced Map
-        function initEnhancedMap() {
-            if (gameState.mapInitialized) return;
+        // Start lobby polling
+        function startLobbyPolling() {
+            setInterval(() => {
+                if (gameState.lobbyCode) {
+                    const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+                    if (currentLobby) {
+                        gameState.lobbyData = currentLobby;
+                        updateLobbyDisplay();
+
+                        // Check if game should start
+                        if (currentLobby.gameState === 'playing' && !gameState.gameStarted) {
+                            startGameFromLobby();
+                        }
+                    }
+                }
+            }, 2000);
+        }
+
+        // Add demo player
+        function addDemoPlayer(index) {
+            if (!gameState.isHost || !gameState.lobbyCode) {
+                alert('Anda harus menjadi host di lobby!');
+                return;
+            }
+
+            const demoPlayers = [
+                { id: 'demo1', name: 'Pemain2', score: 0, status: 'waiting' },
+                { id: 'demo2', name: 'Pemain3', score: 0, status: 'waiting' },
+                { id: 'demo3', name: 'Pemain4', score: 0, status: 'waiting' }
+            ];
+
+            const demoPlayer = demoPlayers[index];
+            if (!demoPlayer) return;
+
+            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+            if (!currentLobby) return;
+
+            if (currentLobby.players[demoPlayer.id]) {
+                alert(`${demoPlayer.name} sudah di lobby!`);
+                return;
+            }
+
+            if (Object.keys(currentLobby.players).length >= 5) {
+                alert('Lobby sudah penuh!');
+                return;
+            }
+
+            currentLobby.players[demoPlayer.id] = {
+                name: demoPlayer.name,
+                score: demoPlayer.score,
+                status: demoPlayer.status,
+                isHost: false,
+                isDemo: true,
+                joinTime: Date.now()
+            };
+
+            saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+            gameState.lobbyData = currentLobby;
             
+            updateLobbyDisplay();
+        }
+
+        // START GAME - FIXED VERSION
+        function startGame() {
+            if (!gameState.isHost) {
+                alert('Hanya host yang bisa memulai game!');
+                return;
+            }
+
+            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+            if (!currentLobby) return;
+
+            // Update game state to playing
+            currentLobby.gameState = 'playing';
+            currentLobby.currentRound = 1;
+            currentLobby.startTime = Date.now();
+
+            // Update settings from UI
+            currentLobby.settings = {
+                rounds: parseInt(document.getElementById('roundsSelect').value),
+                mapType: document.getElementById('mapTypeSelect').value,
+                region: document.getElementById('regionSelect').value
+            };
+
+            saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+            
+            alert('Game dimulai!');
+        }
+
+        // Start game from lobby data
+        function startGameFromLobby() {
+            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+            if (!currentLobby) return;
+
+            gameState.totalRounds = currentLobby.settings.rounds;
+            gameState.currentRound = 1;
+            gameState.selectedRegion = currentLobby.settings.region;
+            gameState.gameStarted = true;
+
+            // Hide lobby, show game screen
+            lobbyScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+
+            // Initialize map and start first round
+            initMap();
+            startRound();
+
+            console.log('Game started successfully!');
+        }
+
+        // Initialize map
+        function initMap() {
             mapLoading.classList.remove('hidden');
-            
+
             setTimeout(() => {
                 try {
-                    // Create map dengan view yang lebih menarik
                     gameState.map = L.map('map', {
                         center: [20, 0],
                         zoom: 2,
                         minZoom: 2,
-                        maxZoom: 19,
-                        worldCopyJump: true,
-                        fullscreenControl: true,
-                        zoomControl: false // We'll use custom controls
+                        maxZoom: 19
                     });
 
-                    // Add default tile layer
-                    const defaultLayer = L.tileLayer(mapProviders.streets.url, {
-                        attribution: mapProviders.streets.attribution,
-                        maxZoom: mapProviders.streets.maxZoom
+                    // Add tile layer based on selected type
+                    const mapType = document.getElementById('mapTypeSelect').value;
+                    const provider = mapProviders[mapType];
+                    
+                    L.tileLayer(provider.url, {
+                        attribution: provider.attribution,
+                        maxZoom: provider.maxZoom,
+                        subdomains: provider.subdomains
                     }).addTo(gameState.map);
 
-                    // Add map click listener untuk guessing
+                    // Add click listener for guessing
                     gameState.map.on('click', handleMapClick);
-
-                    // Add movement listeners untuk user experience
-                    gameState.map.on('movestart', () => {
-                        if (gameState.roundActive) {
-                            guessInstructions.classList.remove('hidden');
-                        }
-                    });
-
-                    gameState.map.on('moveend', () => {
-                        if (gameState.roundActive && gameState.currentGuess) {
-                            updateGuessMarker();
-                        }
-                    });
-
-                    // Add custom controls
-                    L.control.zoom({
-                        position: 'topright'
-                    }).addTo(gameState.map);
-
-                    // Show street view info for street mode
-                    if (mapTypeSelect.value === 'streets') {
-                        streetViewInfo.classList.remove('hidden');
-                    }
 
                     gameState.mapInitialized = true;
                     mapLoading.classList.add('hidden');
-                    
-                    console.log("Enhanced Map initialized successfully");
-                    
+
                 } catch (error) {
                     console.error("Error initializing map:", error);
-                    mapLoading.innerHTML = `
-                        <div class="text-center">
-                            <div>❌ Error memuat peta</div>
-                            <button onclick="initEnhancedMap()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded">
-                                Coba Lagi
-                            </button>
-                        </div>
-                    `;
+                    mapLoading.innerHTML = 'Error memuat peta';
                 }
-            }, 1000);
+            }, 1500);
         }
 
-        // Handle map click untuk guessing
+        // Handle map click
         function handleMapClick(e) {
             if (!gameState.roundActive) return;
             
             gameState.currentGuess = e.latlng;
             updateGuessMarker();
+            updateLocationInfo(e.latlng);
             
-            // Show confirmation button
             lockGuessBtn.classList.remove('bg-green-500');
             lockGuessBtn.classList.add('bg-blue-500');
             lockGuessBtn.textContent = '✅ Konfirmasi Tebakan';
-            
-            // Update location info
-            updateLocationInfo(e.latlng);
         }
 
-        // Update guess marker position
+        // Update guess marker
         function updateGuessMarker() {
             if (!gameState.currentGuess) return;
             
-            // Remove existing guess marker
             if (gameState.guessMarker) {
                 gameState.map.removeLayer(gameState.guessMarker);
             }
             
-            // Add new guess marker
             gameState.guessMarker = L.circleMarker(gameState.currentGuess, {
                 radius: 8,
                 color: '#3b82f6',
                 fillColor: '#3b82f6',
-                fillOpacity: 0.7,
-                className: 'guess-marker'
+                fillOpacity: 0.7
             }).addTo(gameState.map);
-            
-            // Add pulsing effect
-            gameState.guessMarker.bindTooltip('Tebakan Anda', {
-                permanent: false,
-                direction: 'top'
-            });
         }
 
-        // Update location information
+        // Update location info
         function updateLocationInfo(latlng) {
-            locationInfo.classList.remove('hidden');
+            const region = regions[gameState.selectedRegion];
+            let areaType = "Area Urban";
             
-            // Simulate reverse geocoding (in real app, you'd use a geocoding service)
-            const locations = [
-                "Area Perkotaan",
-                "Kawasan Pedesaan", 
-                "Daerah Pesisir",
-                "Wilayah Pegunungan",
-                "Kawasan Industri",
-                "Pusat Kota",
-                "Suburban Area"
-            ];
-            
-            const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-            
+            // Simple area type detection based on region
+            if (gameState.selectedRegion === 'world') {
+                areaType = "Global Area";
+            } else if (gameState.selectedRegion === 'asia') {
+                areaType = "Asia Region";
+            } else if (gameState.selectedRegion === 'europe') {
+                areaType = "European Zone";
+            }
+            // ... add more region-specific descriptions
+
             locationDetails.innerHTML = `
                 <div><strong>Koordinat:</strong> ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}</div>
-                <div><strong>Jenis Area:</strong> ${randomLocation}</div>
-                <div><strong>Zoom Level:</strong> ${gameState.map.getZoom()}</div>
+                <div><strong>Region:</strong> ${getRegionName(gameState.selectedRegion)}</div>
+                <div><strong>Tipe Area:</strong> ${areaType}</div>
             `;
         }
 
-        // Lock current guess
+        // Get region name
+        function getRegionName(regionCode) {
+            const names = {
+                'world': 'Seluruh Dunia',
+                'asia': 'Asia',
+                'europe': 'Eropa', 
+                'north-america': 'Amerika Utara',
+                'south-america': 'Amerika Selatan',
+                'africa': 'Afrika',
+                'oceania': 'Oseania'
+            };
+            return names[regionCode] || regionCode;
+        }
+
+        // Lock guess
         function lockGuess() {
             if (!gameState.currentGuess || !gameState.roundActive) {
                 alert('Silakan klik di peta terlebih dahulu untuk menebak!');
@@ -781,105 +1076,462 @@
             makeGuess(gameState.currentGuess);
         }
 
-        // Show panorama/street view
-        function showPanoramaView() {
+        // Start round - FIXED
+        function startRound() {
+            if (gameState.currentRound > gameState.totalRounds) {
+                endGame();
+                return;
+            }
+
+            gameState.roundActive = true;
+            gameState.hintsUsed = 0;
+            gameState.startTime = Date.now();
+            gameState.roundTime = 0;
+            gameState.currentGuess = null;
+
+            // Clear previous markers
+            clearMapOverlays();
+
+            // Hide previous results
+            roundResultElement.classList.add('hidden');
+            roundResults.classList.add('hidden');
+
+            // Generate random location in selected region
+            generateRandomLocation();
+
+            // Update UI
+            updateGameUI();
+            startRoundTimer();
+
+            // Reset guess button
+            lockGuessBtn.classList.remove('bg-blue-500', 'bg-gray-400');
+            lockGuessBtn.classList.add('bg-green-500');
+            lockGuessBtn.textContent = '🔒 Kunci Tebakan';
+            lockGuessBtn.disabled = false;
+
+            console.log(`Round ${gameState.currentRound} started`);
+        }
+
+        // Generate random location in region
+        function generateRandomLocation() {
+            const region = regions[gameState.selectedRegion];
+            
+            // 80% chance untuk lokasi di kota, 20% random
+            let lat, lng;
+            if (Math.random() < 0.8 && region.cities && region.cities.length > 0) {
+                // Pilih random city dari region
+                const randomCity = region.cities[Math.floor(Math.random() * region.cities.length)];
+                lat = randomCity.lat + (Math.random() - 0.5) * 10; // ±5 derajat dari kota
+                lng = randomCity.lng + (Math.random() - 0.5) * 10;
+            } else {
+                // Random location dalam boundaries region
+                lat = Math.random() * (region.maxLat - region.minLat) + region.minLat;
+                lng = Math.random() * (region.maxLng - region.minLng) + region.minLng;
+            }
+
+            // Ensure within bounds
+            lat = Math.max(region.minLat, Math.min(region.maxLat, lat));
+            lng = Math.max(region.minLng, Math.min(region.maxLng, lng));
+
+            gameState.currentLocation = { lat, lng };
+
+            // Set map view to the random location dengan zoom yang pas
+            gameState.map.setView([gameState.currentLocation.lat, gameState.currentLocation.lng], 13);
+
+            console.log(`Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        }
+
+        // Start round timer
+        function startRoundTimer() {
+            if (gameState.roundTimer) {
+                clearInterval(gameState.roundTimer);
+            }
+            
+            gameState.roundTimer = setInterval(() => {
+                gameState.roundTime++;
+                roundTimer.textContent = `⏱️ Waktu: ${gameState.roundTime}s`;
+            }, 1000);
+        }
+
+        // Make guess
+        function makeGuess(guessLocation) {
             if (!gameState.roundActive) return;
             
-            // Zoom in untuk street view experience
-            gameState.map.setZoom(18);
+            gameState.roundActive = false;
+            clearInterval(gameState.roundTimer);
+
+            // Calculate distance and score
+            const distance = calculateDistance(
+                gameState.currentLocation.lat, 
+                gameState.currentLocation.lng,
+                guessLocation.lat, 
+                guessLocation.lng
+            );
             
-            // Show street view info
-            streetViewInfo.classList.remove('hidden');
-            
-            // Add some random markers untuk simulasi street view
-            const bounds = gameState.map.getBounds();
-            const ne = bounds.getNorthEast();
-            const sw = bounds.getSouthWest();
-            
-            // Add some building-like rectangles
-            for (let i = 0; i < 5; i++) {
-                const randomLat = sw.lat + Math.random() * (ne.lat - sw.lat);
-                const randomLng = sw.lng + Math.random() * (ne.lng - sw.lng);
-                
-                L.rectangle([
-                    [randomLat - 0.001, randomLng - 0.001],
-                    [randomLat + 0.001, randomLng + 0.001]
-                ], {
-                    color: "#666",
-                    fillColor: "#ddd",
-                    fillOpacity: 0.5,
-                    className: 'building-layer'
-                }).addTo(gameState.map);
-            }
-            
-            alert('🏙️ Street View Mode: Telusuri area dengan zoom untuk melihat detail!');
+            const roundScore = calculateScore(distance, gameState.roundTime);
+            gameState.score += roundScore;
+            gameState.roundScores.push(roundScore);
+
+            // Show results
+            showRoundResult(guessLocation, distance, roundScore);
+            updatePlayerStatus('finished', roundScore);
+
+            console.log(`Guess made - Score: ${roundScore}, Distance: ${distance}m`);
         }
 
-        // Zoom in function
-        function zoomIn() {
-            if (gameState.map) {
-                gameState.map.zoomIn();
-            }
-        }
-
-        // Zoom out function
-        function zoomOut() {
-            if (gameState.map) {
-                gameState.map.zoomOut();
-            }
-        }
-
-        // Toggle fullscreen
-        function toggleFullscreen() {
-            if (gameState.map) {
-                gameState.map.toggleFullscreen();
-            }
-        }
-
-        // Update map style based on selection
-        function updateMapStyle() {
-            if (!gameState.map) return;
+        // Calculate distance
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
             
-            const mapType = mapTypeSelect.value;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
             
-            // Remove existing tile layers
-            gameState.map.eachLayer((layer) => {
-                if (layer instanceof L.TileLayer) {
-                    gameState.map.removeLayer(layer);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Calculate score
+        function calculateScore(distance, timeSeconds) {
+            const baseScore = 5000;
+            const maxDistance = 20000000;
+            const distancePenalty = Math.min(distance / maxDistance, 1) * baseScore;
+            const maxTime = 300;
+            const timeBonus = Math.max(0, (maxTime - timeSeconds) / maxTime) * 1000;
+            return Math.max(0, baseScore - distancePenalty + timeBonus);
+        }
+
+        // Show round result
+        function showRoundResult(guessLocation, distance, roundScore) {
+            // Show answer marker
+            gameState.answerMarker = L.circleMarker(
+                [gameState.currentLocation.lat, gameState.currentLocation.lng],
+                {
+                    radius: 10,
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 1,
+                    className: 'answer-marker pulse-marker'
                 }
+            ).addTo(gameState.map).bindTooltip('Lokasi Sebenarnya', { permanent: false });
+
+            // Draw line between guess and answer
+            gameState.distanceLine = L.polyline([
+                [guessLocation.lat, guessLocation.lng],
+                [gameState.currentLocation.lat, gameState.currentLocation.lng]
+            ], {
+                color: '#ef4444',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '5, 10'
+            }).addTo(gameState.map);
+
+            // Fit map to show both markers
+            const group = new L.featureGroup([gameState.guessMarker, gameState.answerMarker]);
+            gameState.map.fitBounds(group.getBounds().pad(0.1));
+
+            // Show round result
+            const distanceText = distance >= 1000 
+                ? `${(distance / 1000).toFixed(2)} km` 
+                : `${Math.round(distance)} meter`;
+                
+            distanceResultElement.textContent = `Jarak: ${distanceText}`;
+            roundScoreElement.textContent = `Skor Ronde: ${Math.round(roundScore)}`;
+            roundScoreElement.classList.add('score-pop');
+            roundResultElement.classList.remove('hidden');
+
+            // Show round results after delay
+            setTimeout(() => {
+                showRoundResults();
+            }, 2000);
+        }
+
+        // Show round results
+        function showRoundResults() {
+            // Build simple results table
+            let html = `
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="p-2 text-left">Pemain</th>
+                            <th class="p-2 text-right">Skor</th>
+                            <th class="p-2 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Current player result
+            html += `
+                <tr class="bg-blue-50">
+                    <td class="p-2">${gameState.playerName} (Anda)</td>
+                    <td class="p-2 text-right">${Math.round(gameState.roundScores[gameState.roundScores.length - 1])}</td>
+                    <td class="p-2 text-right">✅ Selesai</td>
+                </tr>
+            `;
+            
+            // Demo players results
+            const demoPlayers = ['Pemain2', 'Pemain3', 'Pemain4'];
+            demoPlayers.forEach(player => {
+                const demoScore = Math.round(2000 + Math.random() * 3000);
+                html += `
+                    <tr>
+                        <td class="p-2">${player}</td>
+                        <td class="p-2 text-right">${demoScore}</td>
+                        <td class="p-2 text-right">${Math.random() > 0.3 ? '✅ Selesai' : '⏳ Menebak'}</td>
+                    </tr>
+                `;
             });
             
-            // Add new tile layer
-            const provider = mapProviders[mapType];
-            L.tileLayer(provider.url, {
-                attribution: provider.attribution,
-                maxZoom: provider.maxZoom,
-                subdomains: provider.subdomains || ['a','b','c']
-            }).addTo(gameState.map);
-            
-            // Update UI based on map type
-            if (mapType === 'streets') {
-                streetViewInfo.classList.remove('hidden');
-                guessInstructions.innerHTML = '🎯 <strong>Street View: Klik di peta untuk menebak lokasi!</strong>';
-            } else {
-                streetViewInfo.classList.add('hidden');
-                guessInstructions.innerHTML = '🎯 <strong>Klik di mana saja di peta untuk menebak lokasi!</strong>';
+            html += '</tbody></table>';
+            resultsTable.innerHTML = html;
+            roundResults.classList.remove('hidden');
+
+            // Show next round button for host
+            if (gameState.isHost) {
+                nextRoundBtn.classList.remove('hidden');
             }
         }
 
-        // [Rest of the functions remain the same as previous version...]
-        // Generate unique player ID, lobby functions, game logic, etc.
-        // Let me know if you want me to include the complete code
+        // Use hint
+        function useHint() {
+            if (!gameState.roundActive || gameState.hintsUsed >= gameState.maxHints) return;
+            
+            gameState.hintsUsed++;
+            hintCountElement.textContent = gameState.maxHints - gameState.hintsUsed;
+            
+            // Zoom out to show broader area
+            gameState.map.setZoom(8);
+            
+            if (gameState.hintsUsed >= gameState.maxHints) {
+                hintBtn.disabled = true;
+                hintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
 
-        // Note: Untuk menjaga panjang response, saya tidak menulis ulang semua fungsi
-        // yang sama dengan versi sebelumnya. Fungsi-fungsi seperti:
-        // - generatePlayerId, joinOrCreateLobby, createLobby, joinLobby
-        // - setupLobby, startGame, startRound, makeGuess, calculateDistance
-        // - calculateScore, useHint, showRoundResults, dll.
-        // tetap sama dengan versi sebelumnya.
+        // Change map view
+        function changeMapView() {
+            const mapTypeSelect = document.getElementById('mapTypeSelect');
+            const currentIndex = Array.from(mapTypeSelect.options).findIndex(opt => opt.value === mapTypeSelect.value);
+            const nextIndex = (currentIndex + 1) % mapTypeSelect.options.length;
+            mapTypeSelect.value = mapTypeSelect.options[nextIndex].value;
+            
+            // Update map
+            if (gameState.map) {
+                gameState.map.eachLayer((layer) => {
+                    if (layer instanceof L.TileLayer) {
+                        gameState.map.removeLayer(layer);
+                    }
+                });
 
-        // Initialize the app when the page loads
+                const provider = mapProviders[mapTypeSelect.value];
+                L.tileLayer(provider.url, {
+                    attribution: provider.attribution,
+                    maxZoom: provider.maxZoom,
+                    subdomains: provider.subdomains
+                }).addTo(gameState.map);
+            }
+        }
+
+        // Next round
+        function nextRound() {
+            if (!gameState.isHost) return;
+            
+            gameState.currentRound++;
+            
+            if (gameState.currentRound > gameState.totalRounds) {
+                endGame();
+                return;
+            }
+
+            // Update lobby data
+            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+            if (currentLobby) {
+                currentLobby.currentRound = gameState.currentRound;
+                saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+            }
+
+            startRound();
+        }
+
+        // End game
+        function endGame() {
+            // Calculate winner
+            const winner = {
+                name: gameState.playerName,
+                score: Math.round(gameState.score)
+            };
+
+            showWinnerScreen(winner);
+            
+            // Save to leaderboard
+            saveToLeaderboard(winner.name, winner.score);
+        }
+
+        // Show winner screen
+        function showWinnerScreen(winner) {
+            winnerName.textContent = winner.name;
+            winnerScore.innerHTML = `Skor: <span class="font-bold">${winner.score}</span>`;
+            
+            winnerScreen.classList.remove('hidden');
+            
+            // Countdown to return to lobby
+            let countdownValue = 10;
+            const countdownInterval = setInterval(() => {
+                countdownValue--;
+                countdown.textContent = countdownValue;
+                
+                if (countdownValue <= 0) {
+                    clearInterval(countdownInterval);
+                    returnToLobby();
+                }
+            }, 1000);
+        }
+
+        // Return to lobby
+        function returnToLobby() {
+            if (gameState.isHost) {
+                const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+                if (currentLobby) {
+                    currentLobby.gameState = 'lobby';
+                    currentLobby.currentRound = 0;
+                    saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+                }
+            }
+
+            // Reset game state
+            gameState.score = 0;
+            gameState.roundScores = [];
+            gameState.currentRound = 0;
+            gameState.gameStarted = false;
+
+            // Show lobby screen
+            winnerScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            lobbyScreen.classList.remove('hidden');
+        }
+
+        // Update player status
+        function updatePlayerStatus(status, score = null) {
+            const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+            if (!currentLobby) return;
+
+            currentLobby.players[gameState.playerId].status = status;
+            if (score !== null) {
+                currentLobby.players[gameState.playerId].score = gameState.score;
+            }
+
+            saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+        }
+
+        // Update game UI
+        function updateGameUI() {
+            currentRoundElement.textContent = gameState.currentRound;
+            totalRoundsElement.textContent = gameState.totalRounds;
+            currentRoundDisplay.textContent = gameState.currentRound;
+            totalRoundsDisplay.textContent = gameState.totalRounds;
+            currentLobbyCode.textContent = gameState.lobbyCode;
+            hintCountElement.textContent = gameState.maxHints - gameState.hintsUsed;
+            
+            roundInfo.classList.remove('hidden');
+        }
+
+        // Clear map overlays
+        function clearMapOverlays() {
+            if (gameState.guessMarker) {
+                gameState.map.removeLayer(gameState.guessMarker);
+                gameState.guessMarker = null;
+            }
+            
+            if (gameState.answerMarker) {
+                gameState.map.removeLayer(gameState.answerMarker);
+                gameState.answerMarker = null;
+            }
+            
+            if (gameState.distanceLine) {
+                gameState.map.removeLayer(gameState.distanceLine);
+                gameState.distanceLine = null;
+            }
+        }
+
+        // Map control functions
+        function zoomIn() {
+            if (gameState.map) gameState.map.zoomIn();
+        }
+
+        function zoomOut() {
+            if (gameState.map) gameState.map.zoomOut();
+        }
+
+        function toggle3DMode() {
+            gameState.is3DMode = !gameState.is3DMode;
+            // Simple 3D effect using CSS transforms
+            if (gameState.is3DMode) {
+                document.getElementById('map').classList.add('map-3d');
+                toggle3DBtn.style.backgroundColor = '#3b82f6';
+                toggle3DBtn.style.color = 'white';
+            } else {
+                document.getElementById('map').classList.remove('map-3d');
+                toggle3DBtn.style.backgroundColor = '';
+                toggle3DBtn.style.color = '';
+            }
+        }
+
+        // Leave lobby
+        function leaveLobby() {
+            if (gameState.lobbyCode) {
+                const currentLobby = getLobbyFromStorage(gameState.lobbyCode);
+                if (currentLobby) {
+                    delete currentLobby.players[gameState.playerId];
+                    
+                    if (Object.keys(currentLobby.players).length === 0) {
+                        localStorage.removeItem(`lobby_${gameState.lobbyCode}`);
+                    } else if (gameState.isHost) {
+                        const newHostId = Object.keys(currentLobby.players)[0];
+                        currentLobby.players[newHostId].isHost = true;
+                        currentLobby.host = newHostId;
+                        saveLobbyToStorage(gameState.lobbyCode, currentLobby);
+                    }
+                }
+            }
+
+            resetLobbyState();
+            alert('Anda keluar dari lobby');
+        }
+
+        // Reset lobby state
+        function resetLobbyState() {
+            gameState.lobbyCode = '';
+            gameState.isHost = false;
+            gameState.lobbyData = null;
+            
+            startGameBtn.classList.add('hidden');
+            leaveLobbyBtn.classList.add('hidden');
+            joinLobbyBtn.classList.remove('hidden');
+            
+            playerCount.textContent = '0';
+            playersList.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">Belum ada pemain</div>';
+            lobbyStatus.textContent = '💤 Menunggu pemain...';
+        }
+
+        // Save to leaderboard
+        function saveToLeaderboard(name, score) {
+            const leaderboard = JSON.parse(localStorage.getItem('mapsGuesserLeaderboard') || '[]');
+            leaderboard.push({
+                name: name,
+                score: score,
+                date: new Date().toISOString()
+            });
+            leaderboard.sort((a, b) => b.score - a.score);
+            if (leaderboard.length > 10) leaderboard.splice(10);
+            localStorage.setItem('mapsGuesserLeaderboard', JSON.stringify(leaderboard));
+        }
+
+        // Initialize when page loads
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-    </html>
+                                    </html>
