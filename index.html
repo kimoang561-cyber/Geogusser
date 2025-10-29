@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maps Guesser - Fixed Game & 3D Map</title>
+    <title>Maps Guesser - Local Maps</title>
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,10 +11,6 @@
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Leaflet Elevation -->
-    <link rel="stylesheet" href="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.css" />
-    <script src="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.min.js"></script>
 
     <style>
         /* Animasi dan styles */
@@ -42,28 +38,34 @@
             border-radius: 10px;
         }
         
+        /* Map container kecil persegi panjang */
         #map {
-            height: 100%;
+            height: 300px; /* Diperkecil */
             width: 100%;
+            max-width: 500px; /* Lebar maksimal */
+            margin: 0 auto;
             cursor: crosshair !important;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         .guess-marker {
             background-color: #3b82f6;
             border: 3px solid white;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         
         .answer-marker {
             background-color: #ef4444;
             border: 3px solid white;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         
         .pulse-marker {
@@ -115,97 +117,83 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Map controls */
+        /* Map controls kecil */
         .map-controls {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 5px;
+            right: 5px;
             z-index: 1000;
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 5px;
+            border-radius: 6px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
         }
         
-        /* 3D Effect */
-        .map-3d {
-            transform-style: preserve-3d;
-            perspective: 1000px;
-        }
-        
-        .tile-3d {
-            transform: translateZ(10px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        }
-        
-        /* Elevation profile */
-        .elevation-control {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            margin: 10px;
+        /* Game info compact */
+        .compact-info {
+            font-size: 0.875rem;
+            padding: 8px 12px;
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-gray-50 font-sans">
     <!-- Loading Overlay -->
     <div id="globalLoading" class="loading-overlay">
         <div class="text-center">
             <div class="loading-spinner mx-auto mb-4"></div>
-            <div class="text-xl">Memuat Game Maps Guesser...</div>
+            <div class="text-xl">Memuat Game Maps Guesser</div>
             <div id="loadingDetail" class="text-sm mt-2 text-gray-300">Menyiapkan sistem</div>
         </div>
     </div>
 
     <div id="app" class="min-h-screen flex flex-col hidden">
-        <!-- Header -->
-        <header class="bg-blue-600 text-white p-4 shadow-md">
+        <!-- Header Compact -->
+        <header class="bg-blue-600 text-white p-3 shadow-md">
             <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-2xl font-bold">Maps Guesser - 3D Map</h1>
-                <div id="connectionStatus" class="bg-green-500 px-3 py-1 rounded text-sm">
+                <h1 class="text-xl font-bold">🎯 Maps Guesser</h1>
+                <div id="connectionStatus" class="bg-green-500 px-2 py-1 rounded text-xs">
                     ✅ Online
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="flex-1 container mx-auto p-4">
+        <main class="flex-1 container mx-auto p-3">
             <!-- Lobby Screen -->
-            <div id="lobbyScreen" class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-bold mb-6 text-center">Lobby Game</h2>
+            <div id="lobbyScreen" class="bg-white rounded-lg shadow-sm p-4">
+                <h2 class="text-lg font-bold mb-4 text-center">Lobby Game</h2>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <!-- Player Info -->
-                    <div class="space-y-4">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Nama Pemain</label>
-                            <input type="text" id="playerName" placeholder="Masukkan nama Anda" 
-                                   class="w-full border border-gray-300 rounded-md p-3 text-lg" 
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pemain</label>
+                            <input type="text" id="playerName" placeholder="Nama Anda" 
+                                   class="w-full border border-gray-300 rounded-md p-2 text-sm" 
                                    value="Pemain1" maxlength="15">
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Buat atau Gabung Lobby</label>
-                            <div class="flex space-x-2 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Kode Lobby</label>
+                            <div class="flex space-x-2 mb-1">
                                 <input type="text" id="lobbyCode" placeholder="Kode Lobby" 
-                                       class="flex-1 border border-gray-300 rounded-md p-3"
+                                       class="flex-1 border border-gray-300 rounded-md p-2 text-sm"
                                        value="ABC123" maxlength="6">
-                                <button id="generateCodeBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 rounded transition">
+                                <button id="generateCodeBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 rounded text-sm transition">
                                     🔄
                                 </button>
                             </div>
-                            <button id="joinLobbyBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition">
+                            <button id="joinLobbyBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded text-sm transition">
                                 🎮 Buat/Gabung Lobby
                             </button>
                         </div>
                     </div>
                     
                     <!-- Game Settings -->
-                    <div class="space-y-4">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Ronde</label>
-                            <select id="roundsSelect" class="w-full border border-gray-300 rounded-md p-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Ronde</label>
+                            <select id="roundsSelect" class="w-full border border-gray-300 rounded-md p-2 text-sm">
                                 <option value="3">3 Ronde</option>
                                 <option value="5" selected>5 Ronde</option>
                                 <option value="7">7 Ronde</option>
@@ -213,67 +201,58 @@
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Mode Peta</label>
-                            <select id="mapTypeSelect" class="w-full border border-gray-300 rounded-md p-3">
-                                <option value="satellite">🛰️ Satellite 3D</option>
-                                <option value="terrain">🏔️ Topography</option>
-                                <option value="streets">🏙️ Street View</option>
-                                <option value="hybrid">🌍 Hybrid</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Region</label>
-                            <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-3">
-                                <option value="world">🌎 Seluruh Dunia</option>
-                                <option value="asia">🧭 Asia</option>
-                                <option value="europe">🏛️ Eropa</option>
-                                <option value="north-america">🗽 Amerika Utara</option>
-                                <option value="south-america">💃 Amerika Selatan</option>
-                                <option value="africa">🦁 Afrika</option>
-                                <option value="oceania">🦘 Oseania</option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                            <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                                <option value="indonesia">🇮🇩 Indonesia</option>
+                                <option value="jawa">🏝️ Jawa</option>
+                                <option value="jogja">🏯 Yogyakarta</option>
+                                <option value="bali">🌴 Bali</option>
+                                <option value="sumatra">🌋 Sumatra</option>
+                                <option value="mexico">🇲🇽 Mexico</option>
+                                <option value="japan">🇯🇵 Japan</option>
+                                <option value="europe">🇪🇺 Europe</option>
                             </select>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Players in Lobby -->
-                <div class="mt-8">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold">Pemain di Lobby (<span id="playerCount">0</span>/5)</h3>
-                        <div id="lobbyStatus" class="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded">
-                            💤 Menunggu pemain...
+                <div class="mt-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-md font-bold">Pemain di Lobby (<span id="playerCount">0</span>/5)</h3>
+                        <div id="lobbyStatus" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                            💤 Menunggu
                         </div>
                     </div>
-                    <div id="playersList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">
+                    <div id="playersList" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                        <div class="p-2 bg-gray-100 rounded text-center text-gray-500 text-xs">
                             Belum ada pemain
                         </div>
                     </div>
                 </div>
                 
                 <!-- Lobby Controls -->
-                <div class="mt-6 flex space-x-4">
-                    <button id="startGameBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition hidden">
+                <div class="mt-4 flex space-x-2">
+                    <button id="startGameBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm transition hidden">
                         🚀 Mulai Game
                     </button>
-                    <button id="leaveLobbyBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded transition hidden">
-                        ❌ Keluar Lobby
+                    <button id="leaveLobbyBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded text-sm transition hidden">
+                        ❌ Keluar
                     </button>
                 </div>
 
                 <!-- Demo Players -->
-                <div class="mt-6 p-4 bg-gray-100 rounded-lg">
-                    <h4 class="font-bold mb-2">Demo Multiplayer (Testing):</h4>
-                    <div class="flex space-x-2 flex-wrap gap-2">
-                        <button id="addDemoPlayer1" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
-                            👤 Tambah Pemain 2
+                <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                    <h4 class="font-bold mb-2 text-sm">Demo Players:</h4>
+                    <div class="flex space-x-1 flex-wrap gap-1">
+                        <button id="addDemoPlayer1" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition">
+                            + Pemain 2
                         </button>
-                        <button id="addDemoPlayer2" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
-                            👤 Tambah Pemain 3
+                        <button id="addDemoPlayer2" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition">
+                            + Pemain 3
                         </button>
-                        <button id="addDemoPlayer3" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm transition">
-                            👤 Tambah Pemain 4
+                        <button id="addDemoPlayer3" class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition">
+                            + Pemain 4
                         </button>
                     </div>
                 </div>
@@ -281,102 +260,104 @@
 
             <!-- Game Screen -->
             <div id="gameScreen" class="hidden">
-                <div class="flex flex-col lg:flex-row gap-4">
-                    <!-- Map Container -->
-                    <div class="flex-1 bg-white rounded-lg shadow-md overflow-hidden relative">
-                        <div id="mapLoading" class="loading-overlay hidden">
-                            <div class="text-center">
-                                <div class="loading-spinner mx-auto mb-4"></div>
-                                <div>Memuat peta 3D...</div>
+                <div class="flex flex-col gap-3">
+                    <!-- Map Container Compact -->
+                    <div class="bg-white rounded-lg shadow-sm p-3">
+                        <div class="text-center mb-2">
+                            <div id="roundInfo" class="compact-info bg-blue-600 text-white rounded-lg inline-block px-3">
+                                <strong>Ronde <span id="currentRoundDisplay">1</span>/<span id="totalRoundsDisplay">5</span></strong>
                             </div>
                         </div>
                         
-                        <!-- Map Controls -->
-                        <div class="map-controls">
-                            <div class="space-y-2">
-                                <button id="zoomInBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                                    <span class="text-lg font-bold">+</span>
-                                </button>
-                                <button id="zoomOutBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                                    <span class="text-lg font-bold">-</span>
-                                </button>
-                                <button id="toggle3DBtn" class="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100">
-                                    <span class="text-sm">3D</span>
-                                </button>
+                        <div class="relative">
+                            <div id="mapLoading" class="loading-overlay hidden">
+                                <div class="text-center">
+                                    <div class="loading-spinner mx-auto mb-2"></div>
+                                    <div class="text-sm">Memuat peta...</div>
+                                </div>
                             </div>
-                        </div>
+                            
+                            <!-- Map Controls -->
+                            <div class="map-controls">
+                                <div class="space-y-1">
+                                    <button id="zoomInBtn" class="w-6 h-6 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100 text-xs">
+                                        +
+                                    </button>
+                                    <button id="zoomOutBtn" class="w-6 h-6 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100 text-xs">
+                                        -
+                                    </button>
+                                </div>
+                            </div>
 
-                        <div id="map" class="w-full h-96 lg:h-full"></div>
-                        
-                        <!-- Guess Instructions -->
-                        <div id="guessInstructions" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg text-sm">
-                            🎯 <strong>Klik di peta untuk menebak lokasi!</strong>
-                        </div>
-
-                        <!-- Round Info -->
-                        <div id="roundInfo" class="absolute top-4 left-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hidden">
-                            <strong>Ronde <span id="currentRoundDisplay">1</span>/<span id="totalRoundsDisplay">5</span></strong>
+                            <div id="map"></div>
+                            
+                            <!-- Guess Instructions -->
+                            <div id="guessInstructions" class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-xs">
+                                🎯 Klik peta untuk menebak!
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Game Panel -->
-                    <div class="w-full lg:w-80 bg-white rounded-lg shadow-md p-4 flex flex-col">
+                    <!-- Game Panel Compact -->
+                    <div class="bg-white rounded-lg shadow-sm p-3">
                         <!-- Game Info -->
-                        <div class="mb-4 p-3 bg-blue-50 rounded-lg">
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold">Ronde: <span id="currentRound">1</span>/<span id="totalRounds">5</span></span>
-                                <span class="font-bold">Lobby: <span id="currentLobbyCode">-</span></span>
+                        <div class="mb-3 p-2 bg-blue-50 rounded-lg">
+                            <div class="flex justify-between items-center text-sm">
+                                <span>Ronde: <span id="currentRound">1</span>/<span id="totalRounds">5</span></span>
+                                <span>Lobby: <span id="currentLobbyCode">-</span></span>
                             </div>
-                            <div class="mt-2 text-sm">
-                                <span id="roundTimer" class="bg-yellow-100 px-2 py-1 rounded">⏱️ Waktu: 0s</span>
+                            <div class="mt-1 text-xs">
+                                <span id="roundTimer" class="bg-yellow-100 px-2 py-1 rounded">⏱️ 0s</span>
                             </div>
                         </div>
                         
                         <!-- Location Info -->
-                        <div id="locationInfo" class="mb-4 p-3 bg-green-50 rounded-lg">
-                            <h3 class="font-bold mb-2">📍 Info Lokasi</h3>
-                            <div id="locationDetails" class="text-sm">
+                        <div id="locationInfo" class="mb-3 p-2 bg-green-50 rounded-lg">
+                            <h3 class="font-bold mb-1 text-sm">📍 Info Lokasi</h3>
+                            <div id="locationDetails" class="text-xs">
                                 Pilih region dan mulai game!
                             </div>
                         </div>
                         
-                        <!-- Players Status -->
-                        <div class="mb-4">
-                            <h3 class="font-bold mb-2">👥 Status Pemain</h3>
-                            <div id="playersStatus" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                <!-- Players status will be shown here -->
+                        <!-- Game Controls -->
+                        <div id="gameControls" class="space-y-2 mb-3">
+                            <button id="lockGuessBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded text-sm transition">
+                                🔒 Kunci Tebakan
+                            </button>
+                            <div class="flex space-x-2">
+                                <button id="hintBtn" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 px-3 rounded text-sm transition">
+                                    💡 Petunjuk (<span id="hintCount">3</span>)
+                                </button>
+                                <button id="changeViewBtn" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded text-sm transition">
+                                    🔄 Ganti Peta
+                                </button>
                             </div>
                         </div>
                         
-                        <!-- Game Controls -->
-                        <div id="gameControls" class="space-y-3 mb-6">
-                            <button id="lockGuessBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition">
-                                🔒 Kunci Tebakan
-                            </button>
-                            <button id="hintBtn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition">
-                                💡 Gunakan Petunjuk (<span id="hintCount">3</span>)
-                            </button>
-                            <button id="changeViewBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded transition">
-                                🛰️ Ganti Tampilan Peta
-                            </button>
-                        </div>
-                        
                         <!-- Round Result -->
-                        <div id="roundResult" class="hidden p-3 bg-gray-100 rounded-lg mb-4">
-                            <h3 class="font-bold text-lg mb-2">🎯 Hasil Ronde</h3>
-                            <p id="distanceResult" class="text-sm"></p>
-                            <p id="roundScore" class="text-lg font-bold"></p>
+                        <div id="roundResult" class="hidden p-2 bg-gray-100 rounded-lg mb-3">
+                            <h3 class="font-bold mb-1 text-sm">🎯 Hasil Ronde</h3>
+                            <p id="distanceResult" class="text-xs"></p>
+                            <p id="roundScore" class="text-md font-bold"></p>
+                        </div>
+
+                        <!-- Players Status Compact -->
+                        <div class="mb-3">
+                            <h3 class="font-bold mb-1 text-sm">👥 Status Pemain</h3>
+                            <div id="playersStatus" class="space-y-1 max-h-24 overflow-y-auto custom-scrollbar text-xs">
+                                <!-- Players status will be shown here -->
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Round Results Table -->
-                <div id="roundResults" class="mt-4 bg-white rounded-lg shadow-md p-4 hidden">
-                    <h3 class="text-lg font-bold mb-3">📊 Hasil Ronde Ini</h3>
-                    <div id="resultsTable" class="overflow-x-auto">
+                <div id="roundResults" class="mt-3 bg-white rounded-lg shadow-sm p-3 hidden">
+                    <h3 class="text-md font-bold mb-2">📊 Hasil Ronde</h3>
+                    <div id="resultsTable" class="overflow-x-auto text-xs">
                         <!-- Results table will be populated here -->
                     </div>
-                    <button id="nextRoundBtn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+                    <button id="nextRoundBtn" class="w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm transition">
                         ➡️ Ronde Berikutnya
                     </button>
                 </div>
@@ -384,11 +365,11 @@
 
             <!-- Winner Screen -->
             <div id="winnerScreen" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center winner-glow">
-                    <h2 class="text-3xl font-bold mb-4 text-yellow-600">🎉 Pemenang! 🎉</h2>
-                    <div id="winnerName" class="text-2xl font-bold text-blue-600 mb-4"></div>
-                    <div id="winnerScore" class="text-xl mb-6">Skor: <span class="font-bold">5900</span></div>
-                    <p class="text-gray-600">Kembali ke lobby dalam <span id="countdown">10</span> detik...</p>
+                <div class="bg-white rounded-lg p-6 max-w-xs w-full mx-4 text-center winner-glow">
+                    <h2 class="text-xl font-bold mb-3 text-yellow-600">🎉 Pemenang! 🎉</h2>
+                    <div id="winnerName" class="text-lg font-bold text-blue-600 mb-3"></div>
+                    <div id="winnerScore" class="text-md mb-4">Skor: <span class="font-bold">5900</span></div>
+                    <p class="text-gray-600 text-sm">Kembali ke lobby dalam <span id="countdown">10</span> detik...</p>
                 </div>
             </div>
         </main>
@@ -396,7 +377,7 @@
 
     <script>
         // =============================================
-        // MAPS GUESSER - Fixed Game Start & 3D Map
+        // MAPS GUESSER - Local Maps dengan Daerah Spesifik
         // =============================================
 
         // Game state
@@ -419,113 +400,85 @@
             maxHints: 3,
             startTime: null,
             map: null,
-            selectedRegion: 'world',
+            selectedRegion: 'indonesia',
             roundTime: 0,
             roundTimer: null,
             players: {},
             currentRoundResults: [],
             currentGuess: null,
-            mapInitialized: false,
-            is3DMode: false
+            mapInitialized: false
         };
 
-        // Enhanced Map providers dengan tile yang lebih detail
-        const mapProviders = {
-            streets: {
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                maxZoom: 19
-            },
-            satellite: {
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: 'Tiles &copy; Esri',
-                maxZoom: 19
-            },
-            terrain: {
-                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                maxZoom: 17
-            },
-            hybrid: {
-                url: 'https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',
-                attribution: '&copy; Google',
-                maxZoom: 20,
-                subdomains: ['mt0','mt1','mt2','mt3']
-            }
+        // DAERAH SPESIFIK dengan koordinat tepat
+        const specificLocations = {
+            'indonesia': [
+                { lat: -6.2088, lng: 106.8456, name: "Monas, Jakarta" },
+                { lat: -7.7971, lng: 110.3688, name: "Keraton Yogyakarta" },
+                { lat: -8.3405, lng: 115.0920, name: "Pantai Kuta, Bali" },
+                { lat: -6.9175, lng: 107.6191, name: "Gedung Sate, Bandung" },
+                { lat: -7.2504, lng: 112.7688, name: "Tugu Pahlawan, Surabaya" }
+            ],
+            'jawa': [
+                { lat: -6.2088, lng: 106.8456, name: "Monas Jakarta" },
+                { lat: -7.7971, lng: 110.3688, name: "Malioboro Jogja" },
+                { lat: -6.9175, lng: 107.6191, name: "Alun-alun Bandung" },
+                { lat: -7.2504, lng: 112.7688, name: "Tunjungan Plaza Surabaya" },
+                { lat: -6.9667, lng: 110.4167, name: "Simpang Lima Semarang" }
+            ],
+            'jogja': [
+                { lat: -7.7971, lng: 110.3688, name: "Keraton Yogyakarta" },
+                { lat: -7.8032, lng: 110.3648, name: "Malioboro Street" },
+                { lat: -7.7679, lng: 110.3783, name: "Sleman City Hall" },
+                { lat: -7.7828, lng: 110.3909, name: "UGM Kampus" },
+                { lat: -7.8075, lng: 110.3712, name: "Benteng Vredeburg" }
+            ],
+            'bali': [
+                { lat: -8.3405, lng: 115.0920, name: "Pantai Kuta" },
+                { lat: -8.5193, lng: 115.2633, name: "Pura Uluwatu" },
+                { lat: -8.4095, lng: 115.1889, name: "Pasar Seni Sukawati" },
+                { lat: -8.5069, lng: 115.2625, name: "GWK Cultural Park" },
+                { lat: -8.3738, lng: 115.5029, name: "Pura Besakih" }
+            ],
+            'sumatra': [
+                { lat: 0.7893, lng: 113.9213, name: "Danau Toba" },
+                { lat: -0.9471, lng: 100.4166, name: "Jam Gadang Bukittinggi" },
+                { lat: 5.5483, lng: 95.3238, name: "Masjid Baiturrahman Banda Aceh" },
+                { lat: -2.9909, lng: 104.7566, name: "Ampera Bridge Palembang" },
+                { lat: 1.1309, lng: 104.0524, name: "Barelang Bridge Batam" }
+            ],
+            'mexico': [
+                { lat: 19.4326, lng: -99.1332, name: "Zocalo Mexico City" },
+                { lat: 20.6597, lng: -103.3496, name: "Guadalajara Cathedral" },
+                { lat: 25.6866, lng: -100.3161, name: "Macroplaza Monterrey" },
+                { lat: 21.1619, lng: -86.8515, name: "Cancun Beach" },
+                { lat: 19.0414, lng: -98.2063, name: "Pyramid of Cholula" }
+            ],
+            'japan': [
+                { lat: 35.6895, lng: 139.6917, name: "Shibuya Crossing Tokyo" },
+                { lat: 34.6937, lng: 135.5023, name: "Osaka Castle" },
+                { lat: 35.0116, lng: 135.7681, name: "Kinkaku-ji Kyoto" },
+                { lat: 43.0618, lng: 141.3545, name: "Sapporo Clock Tower" },
+                { lat: 26.2124, lng: 127.6809, name: "Shuri Castle Okinawa" }
+            ],
+            'europe': [
+                { lat: 48.8566, lng: 2.3522, name: "Eiffel Tower Paris" },
+                { lat: 51.5074, lng: -0.1278, name: "Big Ben London" },
+                { lat: 41.9028, lng: 12.4964, name: "Colosseum Rome" },
+                { lat: 52.5200, lng: 13.4050, name: "Brandenburg Gate Berlin" },
+                { lat: 40.4168, lng: -3.7038, name: "Puerta del Sol Madrid" }
+            ]
         };
 
-        // Region boundaries dengan kota-kota spesifik
-        const regions = {
-            'world': { 
-                minLat: -85, maxLat: 85, minLng: -180, maxLng: 180,
-                cities: [
-                    { lat: 40.7128, lng: -74.0060, name: "New York, USA" },
-                    { lat: 51.5074, lng: -0.1278, name: "London, UK" },
-                    { lat: 35.6762, lng: 139.6503, name: "Tokyo, Japan" },
-                    { lat: -33.8688, lng: 151.2093, name: "Sydney, Australia" },
-                    { lat: -23.5505, lng: -46.6333, name: "Sao Paulo, Brazil" }
-                ]
-            },
-            'asia': { 
-                minLat: -10, maxLat: 55, minLng: 60, maxLng: 150,
-                cities: [
-                    { lat: 35.6762, lng: 139.6503, name: "Tokyo, Japan" },
-                    { lat: 1.3521, lng: 103.8198, name: "Singapore" },
-                    { lat: 22.3193, lng: 114.1694, name: "Hong Kong" },
-                    { lat: 13.7563, lng: 100.5018, name: "Bangkok, Thailand" },
-                    { lat: 39.9042, lng: 116.4074, name: "Beijing, China" }
-                ]
-            },
-            'europe': { 
-                minLat: 35, maxLat: 70, minLng: -25, maxLng: 50,
-                cities: [
-                    { lat: 51.5074, lng: -0.1278, name: "London, UK" },
-                    { lat: 48.8566, lng: 2.3522, name: "Paris, France" },
-                    { lat: 52.5200, lng: 13.4050, name: "Berlin, Germany" },
-                    { lat: 41.9028, lng: 12.4964, name: "Rome, Italy" },
-                    { lat: 52.3676, lng: 4.9041, name: "Amsterdam, Netherlands" }
-                ]
-            },
-            'north-america': { 
-                minLat: 15, maxLat: 75, minLng: -170, maxLng: -55,
-                cities: [
-                    { lat: 40.7128, lng: -74.0060, name: "New York, USA" },
-                    { lat: 34.0522, lng: -118.2437, name: "Los Angeles, USA" },
-                    { lat: 19.4326, lng: -99.1332, name: "Mexico City, Mexico" },
-                    { lat: 43.6532, lng: -79.3832, name: "Toronto, Canada" },
-                    { lat: 41.8781, lng: -87.6298, name: "Chicago, USA" }
-                ]
-            },
-            'south-america': { 
-                minLat: -55, maxLat: 15, minLng: -85, maxLng: -30,
-                cities: [
-                    { lat: -23.5505, lng: -46.6333, name: "Sao Paulo, Brazil" },
-                    { lat: -34.6037, lng: -58.3816, name: "Buenos Aires, Argentina" },
-                    { lat: -12.0464, lng: -77.0428, name: "Lima, Peru" },
-                    { lat: -33.4489, lng: -70.6693, name: "Santiago, Chile" },
-                    { lat: 4.7109, lng: -74.0721, name: "Bogota, Colombia" }
-                ]
-            },
-            'africa': { 
-                minLat: -35, maxLat: 38, minLng: -25, maxLng: 55,
-                cities: [
-                    { lat: -26.2041, lng: 28.0473, name: "Johannesburg, South Africa" },
-                    { lat: 30.0444, lng: 31.2357, name: "Cairo, Egypt" },
-                    { lat: 6.5244, lng: 3.3792, name: "Lagos, Nigeria" },
-                    { lat: -1.2921, lng: 36.8219, name: "Nairobi, Kenya" },
-                    { lat: 33.5731, lng: -7.5898, name: "Casablanca, Morocco" }
-                ]
-            },
-            'oceania': { 
-                minLat: -50, maxLat: 0, minLng: 110, maxLng: 180,
-                cities: [
-                    { lat: -33.8688, lng: 151.2093, name: "Sydney, Australia" },
-                    { lat: -37.8136, lng: 144.9631, name: "Melbourne, Australia" },
-                    { lat: -36.8485, lng: 174.7633, name: "Auckland, New Zealand" },
-                    { lat: -41.2865, lng: 174.7762, name: "Wellington, New Zealand" },
-                    { lat: -17.7333, lng: 168.3273, name: "Port Vila, Vanuatu" }
-                ]
-            }
+        // Region boundaries untuk zoom yang tepat
+        const regionBounds = {
+            'indonesia': { center: [-2.5489, 118.0149], zoom: 5 },
+            'jawa': { center: [-7.6145, 110.7122], zoom: 7 },
+            'jogja': { center: [-7.7971, 110.3688], zoom: 12 },
+            'bali': { center: [-8.4095, 115.1889], zoom: 10 },
+            'sumatra': { center: [-0.5897, 101.3431], zoom: 6 },
+            'mexico': { center: [23.6345, -102.5528], zoom: 5 },
+            'japan': { center: [36.2048, 138.2529], zoom: 5 },
+            'europe': { center: [50.1109, 10.4541], zoom: 4 }
         };
 
         // DOM Elements
@@ -550,7 +503,6 @@
         const mapLoading = document.getElementById('mapLoading');
         const zoomInBtn = document.getElementById('zoomInBtn');
         const zoomOutBtn = document.getElementById('zoomOutBtn');
-        const toggle3DBtn = document.getElementById('toggle3DBtn');
         const guessInstructions = document.getElementById('guessInstructions');
         const roundInfo = document.getElementById('roundInfo');
         const currentRoundDisplay = document.getElementById('currentRoundDisplay');
@@ -658,7 +610,6 @@
             // Map controls
             zoomInBtn.addEventListener('click', zoomIn);
             zoomOutBtn.addEventListener('click', zoomOut);
-            toggle3DBtn.addEventListener('click', toggle3DMode);
         }
 
         // Generate new lobby code
@@ -770,7 +721,6 @@
                 },
                 settings: {
                     rounds: parseInt(document.getElementById('roundsSelect').value),
-                    mapType: document.getElementById('mapTypeSelect').value,
                     region: document.getElementById('regionSelect').value
                 },
                 gameState: 'lobby',
@@ -818,11 +768,11 @@
             updatePlayersList(playerArray);
             
             if (playerArray.length === 1) {
-                lobbyStatus.textContent = '💤 Menunggu pemain...';
-                lobbyStatus.className = 'text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded';
+                lobbyStatus.textContent = '💤 Menunggu';
+                lobbyStatus.className = 'text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded';
             } else if (playerArray.length >= 2) {
-                lobbyStatus.textContent = `👍 ${playerArray.length}/5 pemain - Siap!`;
-                lobbyStatus.className = 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded';
+                lobbyStatus.textContent = `👍 ${playerArray.length}/5 siap`;
+                lobbyStatus.className = 'text-xs bg-green-100 text-green-800 px-2 py-1 rounded';
             }
             
             if (gameState.isHost && playerArray.length >= 1) {
@@ -835,20 +785,19 @@
             playersList.innerHTML = '';
             
             if (players.length === 0) {
-                playersList.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">Belum ada pemain</div>';
+                playersList.innerHTML = '<div class="p-2 bg-gray-100 rounded text-center text-gray-500 text-xs">Belum ada pemain</div>';
                 return;
             }
             
             players.forEach(player => {
                 const playerElement = document.createElement('div');
-                playerElement.className = `p-3 rounded-lg text-center ${
-                    player.isHost ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-100'
+                playerElement.className = `p-2 rounded text-center text-xs ${
+                    player.isHost ? 'bg-blue-100 border border-blue-300' : 'bg-gray-100'
                 }`;
                 
                 playerElement.innerHTML = `
-                    <div class="font-bold text-sm">${player.name}</div>
-                    <div class="text-xs text-gray-600 mt-1">${player.isHost ? '🎮 Host' : '👤 Player'}</div>
-                    <div class="text-xs mt-1 px-2 py-1 rounded-full bg-yellow-200 text-yellow-800">${player.status}</div>
+                    <div class="font-bold">${player.name}</div>
+                    <div class="text-gray-600 mt-1">${player.isHost ? '🎮 Host' : '👤 Player'}</div>
                 `;
                 
                 playersList.appendChild(playerElement);
@@ -917,7 +866,7 @@
             updateLobbyDisplay();
         }
 
-        // START GAME - FIXED VERSION
+        // START GAME
         function startGame() {
             if (!gameState.isHost) {
                 alert('Hanya host yang bisa memulai game!');
@@ -935,7 +884,6 @@
             // Update settings from UI
             currentLobby.settings = {
                 rounds: parseInt(document.getElementById('roundsSelect').value),
-                mapType: document.getElementById('mapTypeSelect').value,
                 region: document.getElementById('regionSelect').value
             };
 
@@ -965,27 +913,27 @@
             console.log('Game started successfully!');
         }
 
-        // Initialize map
+        // Initialize map dengan region yang dipilih
         function initMap() {
             mapLoading.classList.remove('hidden');
 
             setTimeout(() => {
                 try {
+                    const region = gameState.selectedRegion;
+                    const bounds = regionBounds[region] || { center: [0, 0], zoom: 2 };
+
                     gameState.map = L.map('map', {
-                        center: [20, 0],
-                        zoom: 2,
-                        minZoom: 2,
-                        maxZoom: 19
+                        center: bounds.center,
+                        zoom: bounds.zoom,
+                        minZoom: bounds.zoom - 2,
+                        maxZoom: 18,
+                        zoomControl: false
                     });
 
-                    // Add tile layer based on selected type
-                    const mapType = document.getElementById('mapTypeSelect').value;
-                    const provider = mapProviders[mapType];
-                    
-                    L.tileLayer(provider.url, {
-                        attribution: provider.attribution,
-                        maxZoom: provider.maxZoom,
-                        subdomains: provider.subdomains
+                    // Gunakan OpenStreetMap standard
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                        maxZoom: 19
                     }).addTo(gameState.map);
 
                     // Add click listener for guessing
@@ -994,11 +942,13 @@
                     gameState.mapInitialized = true;
                     mapLoading.classList.add('hidden');
 
+                    console.log(`Map initialized for region: ${region}`);
+
                 } catch (error) {
                     console.error("Error initializing map:", error);
                     mapLoading.innerHTML = 'Error memuat peta';
                 }
-            }, 1500);
+            }, 1000);
         }
 
         // Handle map click
@@ -1023,45 +973,37 @@
             }
             
             gameState.guessMarker = L.circleMarker(gameState.currentGuess, {
-                radius: 8,
+                radius: 6,
                 color: '#3b82f6',
                 fillColor: '#3b82f6',
-                fillOpacity: 0.7
+                fillOpacity: 0.7,
+                className: 'guess-marker'
             }).addTo(gameState.map);
         }
 
         // Update location info
         function updateLocationInfo(latlng) {
-            const region = regions[gameState.selectedRegion];
-            let areaType = "Area Urban";
+            const region = gameState.selectedRegion;
+            const regionName = getRegionName(region);
             
-            // Simple area type detection based on region
-            if (gameState.selectedRegion === 'world') {
-                areaType = "Global Area";
-            } else if (gameState.selectedRegion === 'asia') {
-                areaType = "Asia Region";
-            } else if (gameState.selectedRegion === 'europe') {
-                areaType = "European Zone";
-            }
-            // ... add more region-specific descriptions
-
             locationDetails.innerHTML = `
                 <div><strong>Koordinat:</strong> ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}</div>
-                <div><strong>Region:</strong> ${getRegionName(gameState.selectedRegion)}</div>
-                <div><strong>Tipe Area:</strong> ${areaType}</div>
+                <div><strong>Region:</strong> ${regionName}</div>
+                <div><strong>Zoom:</strong> ${gameState.map.getZoom()}x</div>
             `;
         }
 
         // Get region name
         function getRegionName(regionCode) {
             const names = {
-                'world': 'Seluruh Dunia',
-                'asia': 'Asia',
-                'europe': 'Eropa', 
-                'north-america': 'Amerika Utara',
-                'south-america': 'Amerika Selatan',
-                'africa': 'Afrika',
-                'oceania': 'Oseania'
+                'indonesia': 'Indonesia',
+                'jawa': 'Pulau Jawa',
+                'jogja': 'Yogyakarta',
+                'bali': 'Bali',
+                'sumatra': 'Sumatra',
+                'mexico': 'Mexico',
+                'japan': 'Japan',
+                'europe': 'Europe'
             };
             return names[regionCode] || regionCode;
         }
@@ -1076,7 +1018,7 @@
             makeGuess(gameState.currentGuess);
         }
 
-        // Start round - FIXED
+        // Start round
         function startRound() {
             if (gameState.currentRound > gameState.totalRounds) {
                 endGame();
@@ -1109,36 +1051,34 @@
             lockGuessBtn.textContent = '🔒 Kunci Tebakan';
             lockGuessBtn.disabled = false;
 
-            console.log(`Round ${gameState.currentRound} started`);
+            console.log(`Round ${gameState.currentRound} started for region: ${gameState.selectedRegion}`);
         }
 
-        // Generate random location in region
+        // Generate random location dari daftar spesifik
         function generateRandomLocation() {
-            const region = regions[gameState.selectedRegion];
+            const region = gameState.selectedRegion;
+            const locations = specificLocations[region];
             
-            // 80% chance untuk lokasi di kota, 20% random
-            let lat, lng;
-            if (Math.random() < 0.8 && region.cities && region.cities.length > 0) {
-                // Pilih random city dari region
-                const randomCity = region.cities[Math.floor(Math.random() * region.cities.length)];
-                lat = randomCity.lat + (Math.random() - 0.5) * 10; // ±5 derajat dari kota
-                lng = randomCity.lng + (Math.random() - 0.5) * 10;
+            if (locations && locations.length > 0) {
+                // Pilih random location dari daftar spesifik
+                const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+                gameState.currentLocation = {
+                    lat: randomLocation.lat,
+                    lng: randomLocation.lng
+                };
+                
+                console.log(`Selected location: ${randomLocation.name}`);
             } else {
-                // Random location dalam boundaries region
-                lat = Math.random() * (region.maxLat - region.minLat) + region.minLat;
-                lng = Math.random() * (region.maxLng - region.minLng) + region.minLng;
+                // Fallback ke random location dalam bounds
+                const bounds = regionBounds[region];
+                const lat = bounds.center[0] + (Math.random() - 0.5) * 10;
+                const lng = bounds.center[1] + (Math.random() - 0.5) * 10;
+                gameState.currentLocation = { lat, lng };
             }
 
-            // Ensure within bounds
-            lat = Math.max(region.minLat, Math.min(region.maxLat, lat));
-            lng = Math.max(region.minLng, Math.min(region.maxLng, lng));
-
-            gameState.currentLocation = { lat, lng };
-
-            // Set map view to the random location dengan zoom yang pas
-            gameState.map.setView([gameState.currentLocation.lat, gameState.currentLocation.lng], 13);
-
-            console.log(`Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+            // Set map view ke lokasi dengan zoom yang tepat
+            const bounds = regionBounds[region];
+            gameState.map.setView(bounds.center, bounds.zoom);
         }
 
         // Start round timer
@@ -1149,7 +1089,7 @@
             
             gameState.roundTimer = setInterval(() => {
                 gameState.roundTime++;
-                roundTimer.textContent = `⏱️ Waktu: ${gameState.roundTime}s`;
+                roundTimer.textContent = `⏱️ ${gameState.roundTime}s`;
             }, 1000);
         }
 
@@ -1210,7 +1150,7 @@
             gameState.answerMarker = L.circleMarker(
                 [gameState.currentLocation.lat, gameState.currentLocation.lng],
                 {
-                    radius: 10,
+                    radius: 8,
                     color: '#ef4444',
                     fillColor: '#ef4444',
                     fillOpacity: 1,
@@ -1224,7 +1164,7 @@
                 [gameState.currentLocation.lat, gameState.currentLocation.lng]
             ], {
                 color: '#ef4444',
-                weight: 3,
+                weight: 2,
                 opacity: 0.7,
                 dashArray: '5, 10'
             }).addTo(gameState.map);
@@ -1239,7 +1179,7 @@
                 : `${Math.round(distance)} meter`;
                 
             distanceResultElement.textContent = `Jarak: ${distanceText}`;
-            roundScoreElement.textContent = `Skor Ronde: ${Math.round(roundScore)}`;
+            roundScoreElement.textContent = `Skor: ${Math.round(roundScore)}`;
             roundScoreElement.classList.add('score-pop');
             roundResultElement.classList.remove('hidden');
 
@@ -1253,12 +1193,12 @@
         function showRoundResults() {
             // Build simple results table
             let html = `
-                <table class="w-full text-sm">
+                <table class="w-full">
                     <thead>
                         <tr class="bg-gray-100">
-                            <th class="p-2 text-left">Pemain</th>
-                            <th class="p-2 text-right">Skor</th>
-                            <th class="p-2 text-right">Status</th>
+                            <th class="p-1 text-left text-xs">Pemain</th>
+                            <th class="p-1 text-right text-xs">Skor</th>
+                            <th class="p-1 text-right text-xs">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1267,9 +1207,9 @@
             // Current player result
             html += `
                 <tr class="bg-blue-50">
-                    <td class="p-2">${gameState.playerName} (Anda)</td>
-                    <td class="p-2 text-right">${Math.round(gameState.roundScores[gameState.roundScores.length - 1])}</td>
-                    <td class="p-2 text-right">✅ Selesai</td>
+                    <td class="p-1 text-xs">${gameState.playerName} (Anda)</td>
+                    <td class="p-1 text-right text-xs">${Math.round(gameState.roundScores[gameState.roundScores.length - 1])}</td>
+                    <td class="p-1 text-right text-xs">✅ Selesai</td>
                 </tr>
             `;
             
@@ -1279,9 +1219,9 @@
                 const demoScore = Math.round(2000 + Math.random() * 3000);
                 html += `
                     <tr>
-                        <td class="p-2">${player}</td>
-                        <td class="p-2 text-right">${demoScore}</td>
-                        <td class="p-2 text-right">${Math.random() > 0.3 ? '✅ Selesai' : '⏳ Menebak'}</td>
+                        <td class="p-1 text-xs">${player}</td>
+                        <td class="p-1 text-right text-xs">${demoScore}</td>
+                        <td class="p-1 text-right text-xs">${Math.random() > 0.3 ? '✅ Selesai' : '⏳ Menebak'}</td>
                     </tr>
                 `;
             });
@@ -1303,8 +1243,8 @@
             gameState.hintsUsed++;
             hintCountElement.textContent = gameState.maxHints - gameState.hintsUsed;
             
-            // Zoom out to show broader area
-            gameState.map.setZoom(8);
+            // Zoom out untuk petunjuk
+            gameState.map.zoomOut();
             
             if (gameState.hintsUsed >= gameState.maxHints) {
                 hintBtn.disabled = true;
@@ -1314,12 +1254,7 @@
 
         // Change map view
         function changeMapView() {
-            const mapTypeSelect = document.getElementById('mapTypeSelect');
-            const currentIndex = Array.from(mapTypeSelect.options).findIndex(opt => opt.value === mapTypeSelect.value);
-            const nextIndex = (currentIndex + 1) % mapTypeSelect.options.length;
-            mapTypeSelect.value = mapTypeSelect.options[nextIndex].value;
-            
-            // Update map
+            // Simple map style toggle
             if (gameState.map) {
                 gameState.map.eachLayer((layer) => {
                     if (layer instanceof L.TileLayer) {
@@ -1327,11 +1262,18 @@
                     }
                 });
 
-                const provider = mapProviders[mapTypeSelect.value];
-                L.tileLayer(provider.url, {
-                    attribution: provider.attribution,
-                    maxZoom: provider.maxZoom,
-                    subdomains: provider.subdomains
+                // Alternate between different tile providers
+                const providers = [
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                    'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+                ];
+                
+                const randomProvider = providers[Math.floor(Math.random() * providers.length)];
+                
+                L.tileLayer(randomProvider, {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
                 }).addTo(gameState.map);
             }
         }
@@ -1466,20 +1408,6 @@
             if (gameState.map) gameState.map.zoomOut();
         }
 
-        function toggle3DMode() {
-            gameState.is3DMode = !gameState.is3DMode;
-            // Simple 3D effect using CSS transforms
-            if (gameState.is3DMode) {
-                document.getElementById('map').classList.add('map-3d');
-                toggle3DBtn.style.backgroundColor = '#3b82f6';
-                toggle3DBtn.style.color = 'white';
-            } else {
-                document.getElementById('map').classList.remove('map-3d');
-                toggle3DBtn.style.backgroundColor = '';
-                toggle3DBtn.style.color = '';
-            }
-        }
-
         // Leave lobby
         function leaveLobby() {
             if (gameState.lobbyCode) {
@@ -1513,8 +1441,8 @@
             joinLobbyBtn.classList.remove('hidden');
             
             playerCount.textContent = '0';
-            playersList.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg text-center text-gray-500">Belum ada pemain</div>';
-            lobbyStatus.textContent = '💤 Menunggu pemain...';
+            playersList.innerHTML = '<div class="p-2 bg-gray-100 rounded text-center text-gray-500 text-xs">Belum ada pemain</div>';
+            lobbyStatus.textContent = '💤 Menunggu';
         }
 
         // Save to leaderboard
@@ -1534,4 +1462,4 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-                                    </html>
+    </html>
