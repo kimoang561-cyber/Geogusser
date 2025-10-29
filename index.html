@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maps Guesser - Multiplayer</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        /* Animasi sederhana untuk notifikasi skor */
+        @keyframes scorePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .score-pop {
+            animation: scorePop 0.5s ease-in-out;
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Style untuk map container */
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Custom marker styles */
+        .guess-marker {
+            background-color: #3b82f6;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .answer-marker {
+            background-color: #ef4444;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .pulse-marker {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Winner animation */
+        @keyframes winnerGlow {
+            0% { box-shadow: 0 0 20px gold; }
+            50% { box-shadow: 0 0 40px gold; }
+            100% { box-shadow: 0 0 20px gold; }
+        }
+        
+        .winner-glow {
+            animation: winnerGlow 2s infinite;
+        }
+        
+        /* Player status colors */
+        .player-waiting { background-color: #fbbf24; }
+        .player-guessing { background-color: #3b82f6; }
+        .player-finished { background-color: #10b981; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 shadow-md">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Maps Guesser - Multiplayer</h1>
+                <div id="connectionStatus" class="bg-yellow-500 px-3 py-1 rounded text-sm">
+                    Offline
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 container mx-auto p-4">
+            <!-- Lobby Screen -->
+            <div id="lobbyScreen" class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-6 text-center">Lobby Game</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Player Info -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nama Pemain</label>
+                            <input type="text" id="playerName" placeholder="Masukkan nama Anda" 
+                                   class="w-full border border-gray-300 rounded-md p-3 text-lg" maxlength="15">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Buat atau Gabung Lobby</label>
+                            <input type="text" id="lobbyCode" placeholder="Kode Lobby (kosongkan untuk buat baru)" 
+                                   class="w-full border border-gray-300 rounded-md p-3 mb-2">
+                            <button id="joinLobbyBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition">
+                                Buat/Gabung Lobby
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Game Settings -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Ronde</label>
+                            <select id="roundsSelect" class="w-full border border-gray-300 rounded-md p-3">
+                                <option value="3">3 Ronde</option>
+                                <option value="5" selected>5 Ronde</option>
+                                <option value="7">7 Ronde</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Mode Peta</label>
+                            <select id="mapTypeSelect" class="w-full border border-gray-300 rounded-md p-3">
+                                <option value="streets">Streets</option>
+                                <option value="satellite">Satellite</option>
+                                <option value="terrain">Terrain</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                            <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-3">
+                                <option value="world">Seluruh Dunia</option>
+                                <option value="asia">Asia</option>
+                                <option value="europe">Eropa</option>
+                                <option value="north-america">Amerika Utara</option>
+                                <option value="south-america">Amerika Selatan</option>
+                                <option value="africa">Afrika</option>
+                                <option value="oceania">Oseania</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Players in Lobby -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-bold mb-4">Pemain di Lobby (<span id="playerCount">0</span>/5)</h3>
+                    <div id="playersList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <!-- Players will be listed here -->
+                    </div>
+                </div>
+                
+                <!-- Lobby Controls -->
+                <div class="mt-6 flex space-x-4">
+                    <button id="startGameBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition hidden">
+                        Mulai Game
+                    </button>
+                    <button id="leaveLobbyBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded transition hidden">
+                        Keluar Lobby
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game Screen -->
+            <div id="gameScreen" class="hidden">
+                <div class="flex flex-col lg:flex-row gap-4">
+                    <!-- Map Container -->
+                    <div class="flex-1 bg-white rounded-lg shadow-md overflow-hidden">
+                        <div id="map" class="w-full h-96 lg:h-full"></div>
+                    </div>
+                    
+                    <!-- Game Panel -->
+                    <div class="w-full lg:w-80 bg-white rounded-lg shadow-md p-4 flex flex-col">
+                        <!-- Game Info -->
+                        <div class="mb-4 p-3 bg-blue-50 rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold">Ronde: <span id="currentRound">1</span>/<span id="totalRounds">5</span></span>
+                                <span class="font-bold">Lobby: <span id="currentLobbyCode">-</span></span>
+                            </div>
+                            <div class="mt-2 text-sm">
+                                <span id="roundTimer" class="bg-yellow-100 px-2 py-1 rounded">Waktu: 0s</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Players Status -->
+                        <div class="mb-4">
+                            <h3 class="font-bold mb-2">Status Pemain</h3>
+                            <div id="playersStatus" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                <!-- Players status will be shown here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Game Controls -->
+                        <div id="gameControls" class="space-y-3 mb-6">
+                            <button id="guessBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition">
+                                Klik Peta untuk Menebak
+                            </button>
+                            <button id="hintBtn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition">
+                                Gunakan Petunjuk (<span id="hintCount">3</span> tersisa)
+                            </button>
+                        </div>
+                        
+                        <!-- Round Result -->
+                        <div id="roundResult" class="hidden p-3 bg-gray-100 rounded-lg mb-4">
+                            <h3 class="font-bold text-lg mb-2">Hasil Ronde</h3>
+                            <p id="distanceResult" class="text-sm"></p>
+                            <p id="roundScore" class="text-lg font-bold"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Round Results Table -->
+                <div id="roundResults" class="mt-4 bg-white rounded-lg shadow-md p-4 hidden">
+                    <h3 class="text-lg font-bold mb-3">Hasil Ronde Ini</h3>
+                    <div id="resultsTable" class="overflow-x-auto">
+                        <!-- Results table will be populated here -->
+                    </div>
+                    <button id="nextRoundBtn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+                        Ronde Berikutnya
+                    </button>
+                </div>
+            </div>
+
+            <!-- Winner Screen -->
+            <div id="winnerScreen" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center winner-glow">
+                    <h2 class="text-3xl font-bold mb-4 text-yellow-600">🎉 Pemenang! 🎉</h2>
+                    <div id="winnerName" class="text-2xl font-bold text-blue-600 mb-4"></div>
+                    <div id="winnerScore" class="text-xl mb-6">Skor: <span class="font-bold">5900</span></div>
+                    <p class="text-gray-600">Kembali ke lobby dalam <span id="countdown">10</span> detik...</p>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Leaderboard -->
+        <aside class="container mx-auto p-4">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h2 class="text-xl font-bold mb-4">Leaderboard Global</h2>
+                <div id="leaderboard" class="custom-scrollbar max-h-64 overflow-y-auto">
+                    <!-- Leaderboard entries will be populated here -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // =============================================
+        // MAPS GUESSER MULTIPLAYER - Firebase Version
+        // =============================================
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4wJABCDEfGhIjKlMnOpQrStUvWxYzAbc",
+            authDomain: "maps-guesser-multiplayer.firebaseapp.com",
+            databaseURL: "https://maps-guesser-multiplayer-default-rtdb.firebaseio.com",
+            projectId: "maps-guesser-multiplayer",
+            storageBucket: "maps-guesser-multiplayer.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef123456"
+        };
+
+        // Game state
+        let gameState = {
+            playerId: null,
+            playerName: '',
+            lobbyCode: '',
+            isHost: false,
+            currentRound: 0,
+            totalRounds: 5,
+            score: 0,
+            roundScores: [],
+            currentLocation: null,
+            guessMarker: null,
+            answerMarker: null,
+            distanceLine: null,
+            gameStarted: false,
+            roundActive: false,
+            hintsUsed: 0,
+            maxHints: 3,
+            startTime: null,
+            map: null,
+            selectedRegion: 'world',
+            roundTime: 0,
+            roundTimer: null,
+            players: {},
+            currentRoundResults: []
+        };
+
+        // Firebase variables
+        let firebaseApp;
+        let database;
+
+        // Map tile providers
+        const mapProviders = {
+            streets: {
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            },
+            satellite: {
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            },
+            terrain: {
+                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+            }
+        };
+
+        // Region boundaries
+        const regions = {
+            'world': { minLat: -90, maxLat: 90, minLng: -180, maxLng: 180 },
+            'asia': { minLat: -10, maxLat: 80, minLng: 25, maxLng: 180 },
+            'europe': { minLat: 35, maxLat: 72, minLng: -25, maxLng: 60 },
+            'north-america': { minLat: 5, maxLat: 85, minLng: -170, maxLng: -50 },
+            'south-america': { minLat: -55, maxLat: 15, minLng: -85, maxLng: -30 },
+            'africa': { minLat: -35, maxLat: 38, minLng: -25, maxLng: 55 },
+            'oceania': { minLat: -50, maxLat: 0, minLng: 110, maxLng: 180 }
+        };
+
+        // DOM Elements
+        const lobbyScreen = document.getElementById('lobbyScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const winnerScreen = document.getElementById('winnerScreen');
+        const playerNameInput = document.getElementById('playerName');
+        const lobbyCodeInput = document.getElementById('lobbyCode');
+        const joinLobbyBtn = document.getElementById('joinLobbyBtn');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const leaveLobbyBtn = document.getElementById('leaveLobbyBtn');
+        const playersList = document.getElementById('playersList');
+        const playerCount = document.getElementById('playerCount');
+        const roundsSelect = document.getElementById('roundsSelect');
+        const mapTypeSelect = document.getElementById('mapTypeSelect');
+        const regionSelect = document.getElementById('regionSelect');
+        const currentRoundElement = document.getElementById('currentRound');
+        const totalRoundsElement = document.getElementById('totalRounds');
+        const currentLobbyCode = document.getElementById('currentLobbyCode');
+        const roundTimer = document.getElementById('roundTimer');
+        const playersStatus = document.getElementById('playersStatus');
+        const guessBtn = document.getElementById('guessBtn');
+        const hintBtn = document.getElementById('hintBtn');
+        const hintCountElement = document.getElementById('hintCount');
+        const roundResultElement = document.getElementById('roundResult');
+        const distanceResultElement = document.getElementById('distanceResult');
+        const roundScoreElement = document.getElementById('roundScore');
+        const roundResults = document.getElementById('roundResults');
+        const resultsTable = document.getElementById('resultsTable');
+        const nextRoundBtn = document.getElementById('nextRoundBtn');
+        const winnerName = document.getElementById('winnerName');
+        const winnerScore = document.getElementById('winnerScore');
+        const countdown = document.getElementById('countdown');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const leaderboardElement = document.getElementById('leaderboard');
+
+        // Initialize the application
+        function init() {
+            // Initialize Firebase
+            initializeFirebase();
+            
+            // Initialize UI
+            setupEventListeners();
+            
+            // Load leaderboard
+            loadLeaderboard();
+            
+            // Generate player ID
+            gameState.playerId = generatePlayerId();
+            
+            // Load saved player name
+            const savedName = localStorage.getItem('mapsGuesserPlayerName');
+            if (savedName) {
+                playerNameInput.value = savedName;
+            }
+        }
+
+        // Initialize Firebase
+        function initializeFirebase() {
+            try {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                
+                // Monitor connection status
+                const connectedRef = database.ref(".info/connected");
+                connectedRef.on("value", (snap) => {
+                    if (snap.val() === true) {
+                        connectionStatus.textContent = "Online";
+                        connectionStatus.className = "bg-green-500 px-3 py-1 rounded text-sm";
+                    } else {
+                        connectionStatus.textContent = "Offline";
+                        connectionStatus.className = "bg-yellow-500 px-3 py-1 rounded text-sm";
+                    }
+                });
+                
+                console.log("Firebase berhasil diinisialisasi");
+            } catch (error) {
+                console.error("Error inisialisasi Firebase:", error);
+                connectionStatus.textContent = "Offline Mode";
+                connectionStatus.className = "bg-red-500 px-3 py-1 rounded text-sm";
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            joinLobbyBtn.addEventListener('click', joinOrCreateLobby);
+            startGameBtn.addEventListener('click', startGame);
+            leaveLobbyBtn.addEventListener('click', leaveLobby);
+            guessBtn.addEventListener('click', enableGuessing);
+            hintBtn.addEventListener('click', useHint);
+            nextRoundBtn.addEventListener('click', nextRound);
+            
+            // Enter key untuk join lobby
+            lobbyCodeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') joinOrCreateLobby();
+            });
+            
+            playerNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') joinOrCreateLobby();
+            });
+        }
+
+        // Generate unique player ID
+        function generatePlayerId() {
+            return 'player_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Join or create lobby
+        function joinOrCreateLobby() {
+            const name = playerNameInput.value.trim();
+            if (!name) {
+                alert('Masukkan nama pemain terlebih dahulu!');
+                return;
+            }
+            
+            gameState.playerName = name;
+            localStorage.setItem('mapsGuesserPlayerName', name);
+            
+            const code = lobbyCodeInput.value.trim().toUpperCase();
+            if (code) {
+                // Join existing lobby
+                joinLobby(code);
+            } else {
+                // Create new lobby
+                createLobby();
+            }
+        }
+
+        // Create new lobby
+        function createLobby() {
+            const lobbyCode = generateLobbyCode();
+            gameState.lobbyCode = lobbyCode;
+            gameState.isHost = true;
+            
+            if (!database) {
+                alert('Tidak dapat terhubung ke server. Mode offline diaktifkan.');
+                startSinglePlayer();
+                return;
+            }
+            
+            const lobbyRef = database.ref('lobbies/' + lobbyCode);
+            
+            // Create lobby data
+            const lobbyData = {
+                host: gameState.playerId,
+                players: {
+                    [gameState.playerId]: {
+                        name: gameState.playerName,
+                        status: 'waiting',
+                        score: 0,
+                        isHost: true
+                    }
+                },
+                settings: {
+                    rounds: parseInt(roundsSelect.value),
+                    mapType: mapTypeSelect.value,
+                    region: regionSelect.value
+                },
+                gameState: 'lobby',
+                currentRound: 0
+            };
+            
+            lobbyRef.set(lobbyData)
+                .then(() => {
+                    setupLobbyListeners(lobbyCode);
+                    showLobbyScreen();
+                })
+                .catch(error => {
+                    console.error('Error membuat lobby:', error);
+                    alert('Gagal membuat lobby. Coba lagi.');
+                });
+        }
+
+        // Join existing lobby
+        function joinLobby(lobbyCode) {
+            if (!database) {
+                alert('Tidak dapat terhubung ke server. Coba lagi nanti.');
+                return;
+            }
+            
+            const lobbyRef = database.ref('lobbies/' + lobbyCode);
+            
+            lobbyRef.once('value')
+                .then(snapshot => {
+                    if (!snapshot.exists()) {
+                        alert('Lobby tidak ditemukan!');
+                        return;
+                    }
+                    
+                    const lobbyData = snapshot.val();
+                    if (Object.keys(lobbyData.players).length >= 5) {
+                        alert('Lobby sudah penuh! (Maksimal 5 pemain)');
+                        return;
+                    }
+                    
+                    if (lobbyData.gameState !== 'lobby') {
+                        alert('Game sudah dimulai di lobby ini!');
+                        return;
+                    }
+                    
+                    gameState.lobbyCode = lobbyCode;
+                    gameState.isHost = false;
+                    
+                    // Add player to lobby
+                    const playerData = {
+                        name: gameState.playerName,
+                        status: 'waiting',
+                        score: 0,
+                        isHost: false
+                    };
+                    
+                    lobbyRef.child('players/' + gameState.playerId).set(playerData)
+                        .then(() => {
+                            setupLobbyListeners(lobbyCode);
+                            showLobbyScreen();
+                        });
+                })
+                .catch(error => {
+                    console.error('Error bergabung lobby:', error);
+                    alert('Gagal bergabung lobby. Coba lagi.');
+                });
+        }
+
+        // Set up realtime listeners for lobby
+        function setupLobbyListeners(lobbyCode) {
+            const lobbyRef = database.ref('lobbies/' + lobbyCode);
+            
+            // Listen for player changes
+            lobbyRef.child('players').on('value', snapshot => {
+                const players = snapshot.val() || {};
+                gameState.players = players;
+                updatePlayersList(players);
+                
+                // Show start button only for host and when there are players
+                if (gameState.isHost && Object.keys(players).length > 0) {
+                    startGameBtn.classList.remove('hidden');
+                }
+            });
+            
+            // Listen for game state changes
+            lobbyRef.child('gameState').on('value', snapshot => {
+                const gameStateValue = snapshot.val();
+                if (gameStateValue === 'playing') {
+                    startGameFromLobby();
+                } else if (gameStateValue === 'finished') {
+                    showWinnerScreen();
+                }
+            });
+            
+            // Listen for round changes
+            lobbyRef.child('currentRound').on('value', snapshot => {
+                const round = snapshot.val();
+                if (round > 0 && round !== gameState.currentRound) {
+                    gameState.currentRound = round;
+                    startRound();
+                }
+            });
+            
+            // Listen for round results
+            lobbyRef.child('roundResults').on('value', snapshot => {
+                const results = snapshot.val();
+                if (results) {
+                    gameState.currentRoundResults = results;
+                    showRoundResults(results);
+                }
+            });
+        }
+
+        // Generate random lobby code
+        function generateLobbyCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Update players list in lobby
+        function updatePlayersList(players) {
+            playersList.innerHTML = '';
+            const playerArray = Object.values(players);
+            
+            playerCount.textContent = playerArray.length;
+            
+            playerArray.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = `p-3 rounded-lg text-center ${
+                    player.isHost ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-100'
+                }`;
+                
+                playerElement.innerHTML = `
+                    <div class="font-bold">${player.name}</div>
+                    <div class="text-sm text-gray-600">${player.isHost ? 'Host' : 'Player'}</div>
+                    <div class="text-xs mt-1 px-2 py-1 rounded-full ${
+                        player.status === 'waiting' ? 'bg-yellow-200' :
+                        player.status === 'guessing' ? 'bg-blue-200' :
+                        'bg-green-200'
+                    }">${player.status}</div>
+                `;
+                
+                playersList.appendChild(playerElement);
+            });
+        }
+
+        // Show lobby screen
+        function showLobbyScreen() {
+            lobbyScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden');
+            winnerScreen.classList.add('hidden');
+            leaveLobbyBtn.classList.remove('hidden');
+            currentLobbyCode.textContent = gameState.lobbyCode;
+        }
+
+        // Start game (host only)
+        function startGame() {
+            if (!gameState.isHost) return;
+            
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            
+            // Update game state to playing
+            lobbyRef.update({
+                gameState: 'playing',
+                currentRound: 1,
+                roundResults: {},
+                startTime: Date.now()
+            }).catch(error => {
+                console.error('Error memulai game:', error);
+            });
+        }
+
+        // Start game from lobby data
+        function startGameFromLobby() {
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            
+            lobbyRef.once('value')
+                .then(snapshot => {
+                    const lobbyData = snapshot.val();
+                    gameState.totalRounds = lobbyData.settings.rounds;
+                    gameState.currentRound = 1;
+                    
+                    // Initialize map if not already done
+                    if (!gameState.map) {
+                        initMap();
+                    } else {
+                        updateMapType(lobbyData.settings.mapType);
+                    }
+                    
+                    gameState.selectedRegion = lobbyData.settings.region;
+                    
+                    // Show game screen
+                    lobbyScreen.classList.add('hidden');
+                    gameScreen.classList.remove('hidden');
+                    
+                    // Start first round
+                    startRound();
+                });
+        }
+
+        // Initialize Leaflet map
+        function initMap() {
+            try {
+                // Create map centered on the world
+                gameState.map = L.map('map').setView([0, 0], 2);
+                
+                // Add default tile layer
+                L.tileLayer(mapProviders.streets.url, {
+                    attribution: mapProviders.streets.attribution,
+                    maxZoom: 18
+                }).addTo(gameState.map);
+                
+                console.log('Peta berhasil diinisialisasi dengan Leaflet');
+            } catch (error) {
+                console.error('Error inisialisasi peta:', error);
+                alert('Terjadi kesalahan saat memuat peta.');
+            }
+        }
+
+        // Update map type
+        function updateMapType(mapType) {
+            if (gameState.map) {
+                // Remove existing tile layers
+                gameState.map.eachLayer((layer) => {
+                    if (layer instanceof L.TileLayer) {
+                        gameState.map.removeLayer(layer);
+                    }
+                });
+                
+                // Add new tile layer
+                const provider = mapProviders[mapType];
+                L.tileLayer(provider.url, {
+                    attribution: provider.attribution,
+                    maxZoom: 18
+                }).addTo(gameState.map);
+            }
+        }
+
+        // Start a new round
+        function startRound() {
+            gameState.roundActive = true;
+            gameState.hintsUsed = 0;
+            gameState.startTime = Date.now();
+            gameState.roundTime = 0;
+            
+            // Clear previous markers and line
+            clearMapOverlays();
+            
+            // Hide previous results
+            roundResultElement.classList.add('hidden');
+            roundResults.classList.add('hidden');
+            
+            // Generate random location
+            generateRandomLocation();
+            
+            // Update player status to guessing
+            updatePlayerStatus('guessing');
+            
+            // Start round timer
+            startRoundTimer();
+            
+            // Update UI
+            updateGameUI();
+        }
+
+        // Generate random location
+        function generateRandomLocation() {
+            const region = regions[gameState.selectedRegion];
+            
+            const lat = Math.random() * (region.maxLat - region.minLat) + region.minLat;
+            const lng = Math.random() * (region.maxLng - region.minLng) + region.minLng;
+            
+            gameState.currentLocation = { lat, lng };
+            
+            // Set map view to the random location
+            gameState.map.setView([gameState.currentLocation.lat, gameState.currentLocation.lng], 16);
+        }
+
+        // Start round timer
+        function startRoundTimer() {
+            if (gameState.roundTimer) {
+                clearInterval(gameState.roundTimer);
+            }
+            
+            gameState.roundTimer = setInterval(() => {
+                gameState.roundTime++;
+                roundTimer.textContent = `Waktu: ${gameState.roundTime}s`;
+            }, 1000);
+        }
+
+        // Enable guessing mode
+        function enableGuessing() {
+            if (!gameState.roundActive) return;
+            
+            // Add click listener to map
+            gameState.map.on('click', handleMapClick);
+            guessBtn.textContent = 'Klik di peta untuk menebak...';
+            guessBtn.classList.add('bg-blue-500');
+        }
+
+        // Handle map click for guessing
+        function handleMapClick(e) {
+            if (!gameState.roundActive) return;
+            
+            makeGuess(e.latlng);
+            
+            // Remove click listener
+            gameState.map.off('click', handleMapClick);
+            guessBtn.textContent = 'Tebakan Terkirim!';
+            guessBtn.classList.remove('bg-blue-500');
+            guessBtn.classList.add('bg-gray-400');
+            guessBtn.disabled = true;
+        }
+
+        // Make a guess
+        function makeGuess(guessLocation) {
+            if (!gameState.roundActive) return;
+            
+            gameState.roundActive = false;
+            
+            // Calculate distance and score
+            const distance = calculateDistance(
+                gameState.currentLocation.lat, 
+                gameState.currentLocation.lng,
+                guessLocation.lat, 
+                guessLocation.lng
+            );
+            
+            const roundScore = calculateScore(distance, gameState.roundTime);
+            gameState.score += roundScore;
+            gameState.roundScores.push(roundScore);
+            
+            // Show markers and line
+            showRoundResult(guessLocation, distance, roundScore);
+            
+            // Update player status to finished
+            updatePlayerStatus('finished', roundScore);
+            
+            // Submit result to database
+            submitRoundResult(roundScore, distance);
+        }
+
+        // Calculate distance using Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Calculate score
+        function calculateScore(distance, timeSeconds) {
+            const baseScore = 5000;
+            const maxDistance = 20000000;
+            const distancePenalty = Math.min(distance / maxDistance, 1) * baseScore;
+            const maxTime = 300;
+            const timeBonus = Math.max(0, (maxTime - timeSeconds) / maxTime) * 1000;
+            return Math.max(0, baseScore - distancePenalty + timeBonus);
+        }
+
+        // Show round result on map
+        function showRoundResult(guessLocation, distance, roundScore) {
+            // Show answer marker
+            gameState.answerMarker = L.circleMarker(
+                [gameState.currentLocation.lat, gameState.currentLocation.lng],
+                {
+                    radius: 10,
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 1,
+                    className: 'answer-marker pulse-marker'
+                }
+            ).addTo(gameState.map).bindTooltip('Lokasi Sebenarnya', { permanent: false, direction: 'top' });
+            
+            // Show guess marker
+            gameState.guessMarker = L.circleMarker(
+                [guessLocation.lat, guessLocation.lng],
+                {
+                    radius: 10,
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 1,
+                    className: 'guess-marker'
+                }
+            ).addTo(gameState.map).bindTooltip('Tebakan Anda', { permanent: false, direction: 'top' });
+            
+            // Draw line between guess and answer
+            gameState.distanceLine = L.polyline([
+                [guessLocation.lat, guessLocation.lng],
+                [gameState.currentLocation.lat, gameState.currentLocation.lng]
+            ], {
+                color: '#ef4444',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '5, 10'
+            }).addTo(gameState.map);
+            
+            // Fit map to show both markers
+            const group = new L.featureGroup([gameState.guessMarker, gameState.answerMarker]);
+            gameState.map.fitBounds(group.getBounds().pad(0.1));
+            
+            // Show round result
+            const distanceText = distance >= 1000 
+                ? `${(distance / 1000).toFixed(2)} km` 
+                : `${Math.round(distance)} meter`;
+                
+            distanceResultElement.textContent = `Jarak: ${distanceText}`;
+            roundScoreElement.textContent = `Skor Ronde: ${Math.round(roundScore)}`;
+            roundScoreElement.classList.add('score-pop');
+            roundResultElement.classList.remove('hidden');
+        }
+
+        // Use hint
+        function useHint() {
+            if (!gameState.roundActive || gameState.hintsUsed >= gameState.maxHints) return;
+            
+            gameState.hintsUsed++;
+            hintCountElement.textContent = gameState.maxHints - gameState.hintsUsed;
+            
+            // Zoom out to show broader area
+            gameState.map.setZoom(10);
+            
+            // Disable hint button if no hints left
+            if (gameState.hintsUsed >= gameState.maxHints) {
+                hintBtn.disabled = true;
+                hintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Update player status in database
+        function updatePlayerStatus(status, score = null) {
+            if (!database) return;
+            
+            const playerRef = database.ref(`lobbies/${gameState.lobbyCode}/players/${gameState.playerId}`);
+            const updates = { status };
+            
+            if (score !== null) {
+                updates.score = gameState.score;
+            }
+            
+            playerRef.update(updates);
+        }
+
+        // Submit round result to database
+        function submitRoundResult(score, distance) {
+            if (!database || !gameState.isHost) return;
+            
+            const resultRef = database.ref(`lobbies/${gameState.lobbyCode}/roundResults/${gameState.playerId}`);
+            resultRef.set({
+                name: gameState.playerName,
+                score: Math.round(score),
+                distance: Math.round(distance),
+                time: gameState.roundTime
+            });
+        }
+
+        // Show round results
+        function showRoundResults(results) {
+            // Clear previous timer
+            if (gameState.roundTimer) {
+                clearInterval(gameState.roundTimer);
+            }
+            
+            // Build results table
+            let html = `
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="p-2 text-left">Pemain</th>
+                            <th class="p-2 text-right">Skor</th>
+                            <th class="p-2 text-right">Jarak</th>
+                            <th class="p-2 text-right">Waktu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            const resultsArray = Object.values(results).sort((a, b) => b.score - a.score);
+            
+            resultsArray.forEach((result, index) => {
+                const distanceText = result.distance >= 1000 
+                    ? `${(result.distance / 1000).toFixed(1)} km` 
+                    : `${result.distance} m`;
+                    
+                html += `
+                    <tr class="${index === 0 ? 'bg-yellow-50 font-bold' : ''}">
+                        <td class="p-2">${result.name}</td>
+                        <td class="p-2 text-right">${Math.round(result.score)}</td>
+                        <td class="p-2 text-right">${distanceText}</td>
+                        <td class="p-2 text-right">${result.time}s</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            resultsTable.innerHTML = html;
+            roundResults.classList.remove('hidden');
+            
+            // If host, show next round button
+            if (gameState.isHost) {
+                nextRoundBtn.classList.remove('hidden');
+            } else {
+                nextRoundBtn.classList.add('hidden');
+            }
+        }
+
+        // Move to next round
+        function nextRound() {
+            if (!gameState.isHost) return;
+            
+            if (gameState.currentRound >= gameState.totalRounds) {
+                endGame();
+                return;
+            }
+            
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            lobbyRef.update({
+                currentRound: gameState.currentRound + 1,
+                roundResults: {}
+            });
+        }
+
+        // End game
+        function endGame() {
+            if (!gameState.isHost) return;
+            
+            // Calculate winner
+            const playersArray = Object.values(gameState.players);
+            const winner = playersArray.reduce((prev, current) => 
+                (prev.score > current.score) ? prev : current
+            );
+            
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            lobbyRef.update({
+                gameState: 'finished',
+                winner: winner.name,
+                winnerScore: winner.score
+            });
+            
+            // Save to global leaderboard
+            saveToLeaderboard(winner.name, winner.score);
+        }
+
+        // Show winner screen
+        function showWinnerScreen() {
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            
+            lobbyRef.once('value')
+                .then(snapshot => {
+                    const lobbyData = snapshot.val();
+                    winnerName.textContent = lobbyData.winner;
+                    winnerScore.innerHTML = `Skor: <span class="font-bold">${lobbyData.winnerScore}</span>`;
+                    
+                    winnerScreen.classList.remove('hidden');
+                    
+                    // Start countdown to return to lobby
+                    let countdownValue = 10;
+                    const countdownInterval = setInterval(() => {
+                        countdownValue--;
+                        countdown.textContent = countdownValue;
+                        
+                        if (countdownValue <= 0) {
+                            clearInterval(countdownInterval);
+                            returnToLobby();
+                        }
+                    }, 1000);
+                });
+        }
+
+        // Return to lobby
+        function returnToLobby() {
+            if (!database) return;
+            
+            const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+            
+            if (gameState.isHost) {
+                // Reset game state
+                lobbyRef.update({
+                    gameState: 'lobby',
+                    currentRound: 0,
+                    roundResults: {}
+                });
+            }
+            
+            // Reset player status
+            updatePlayerStatus('waiting');
+            
+            // Show lobby screen
+            showLobbyScreen();
+            
+            // Reset game state
+            gameState.score = 0;
+            gameState.roundScores = [];
+            gameState.currentRound = 0;
+        }
+
+        // Leave lobby
+        function leaveLobby() {
+            if (database && gameState.lobbyCode) {
+                const playerRef = database.ref(`lobbies/${gameState.lobbyCode}/players/${gameState.playerId}`);
+                playerRef.remove();
+                
+                // If host and no players left, delete lobby
+                if (gameState.isHost) {
+                    const lobbyRef = database.ref('lobbies/' + gameState.lobbyCode);
+                    lobbyRef.once('value')
+                        .then(snapshot => {
+                            const lobbyData = snapshot.val();
+                            if (!lobbyData.players || Object.keys(lobbyData.players).length === 0) {
+                                lobbyRef.remove();
+                            }
+                        });
+                }
+            }
+            
+            // Reset game state
+            gameState.lobbyCode = '';
+            gameState.isHost = false;
+            gameState.players = {};
+            
+            // Show initial screen
+            lobbyScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden');
+            winnerScreen.classList.add('hidden');
+            startGameBtn.classList.add('hidden');
+            leaveLobbyBtn.classList.add('hidden');
+        }
+
+        // Clear map overlays
+        function clearMapOverlays() {
+            if (gameState.guessMarker) {
+                gameState.map.removeLayer(gameState.guessMarker);
+                gameState.guessMarker = null;
+            }
+            
+            if (gameState.answerMarker) {
+                gameState.map.removeLayer(gameState.answerMarker);
+                gameState.answerMarker = null;
+            }
+            
+            if (gameState.distanceLine) {
+                gameState.map.removeLayer(gameState.distanceLine);
+                gameState.distanceLine = null;
+            }
+        }
+
+        // Update game UI
+        function updateGameUI() {
+            currentRoundElement.textContent = gameState.currentRound;
+            totalRoundsElement.textContent = gameState.totalRounds;
+            currentLobbyCode.textContent = gameState.lobbyCode;
+            hintCountElement.textContent = gameState.maxHints - gameState.hintsUsed;
+            
+            // Update players status
+            updatePlayersStatusUI();
+        }
+
+        // Update players status UI
+        function updatePlayersStatusUI() {
+            playersStatus.innerHTML = '';
+            
+            Object.values(gameState.players).forEach(player => {
+                const statusElement = document.createElement('div');
+                statusElement.className = `flex justify-between items-center p-2 rounded ${
+                    player.status === 'waiting' ? 'bg-yellow-100' :
+                    player.status === 'guessing' ? 'bg-blue-100' :
+                    'bg-green-100'
+                }`;
+                
+                statusElement.innerHTML = `
+                    <span class="font-medium">${player.name}</span>
+                    <span class="text-sm ${
+                        player.status === 'waiting' ? 'text-yellow-800' :
+                        player.status === 'guessing' ? 'text-blue-800' :
+                        'text-green-800'
+                    }">${player.status}</span>
+                `;
+                
+                playersStatus.appendChild(statusElement);
+            });
+        }
+
+        // Save to leaderboard
+        function saveToLeaderboard(name, score) {
+            if (!database) {
+                // Save to local storage if offline
+                const leaderboard = JSON.parse(localStorage.getItem('mapsGuesserLeaderboard') || '[]');
+                leaderboard.push({
+                    name: name,
+                    score: score,
+                    date: new Date().toISOString(),
+                    type: 'multiplayer'
+                });
+                
+                leaderboard.sort((a, b) => b.score - a.score);
+                if (leaderboard.length > 10) leaderboard.splice(10);
+                
+                localStorage.setItem('mapsGuesserLeaderboard', JSON.stringify(leaderboard));
+                loadLeaderboard();
+                return;
+            }
+            
+            const leaderboardRef = database.ref('leaderboard');
+            leaderboardRef.push({
+                name: name,
+                score: score,
+                date: new Date().toISOString(),
+                type: 'multiplayer'
+            });
+        }
+
+        // Load leaderboard
+        function loadLeaderboard() {
+            if (!database) {
+                // Load from local storage
+                const leaderboard = JSON.parse(localStorage.getItem('mapsGuesserLeaderboard') || '[]');
+                displayLeaderboard(leaderboard);
+                return;
+            }
+            
+            const leaderboardRef = database.ref('leaderboard');
+            leaderboardRef.orderByChild('score').limitToLast(10).once('value')
+                .then(snapshot => {
+                    const leaderboard = [];
+                    snapshot.forEach(childSnapshot => {
+                        leaderboard.push(childSnapshot.val());
+                    });
+                    leaderboard.sort((a, b) => b.score - a.score);
+                    displayLeaderboard(leaderboard);
+                })
+                .catch(error => {
+                    console.error('Error loading leaderboard:', error);
+                    // Fallback to local storage
+                    const localLeaderboard = JSON.parse(localStorage.getItem('mapsGuesserLeaderboard') || '[]');
+                    displayLeaderboard(localLeaderboard);
+                });
+        }
+
+        // Display leaderboard
+        function displayLeaderboard(leaderboard) {
+            if (leaderboard.length === 0) {
+                leaderboardElement.innerHTML = '<p class="text-gray-500 text-center py-4">Belum ada skor</p>';
+                return;
+            }
+            
+            let html = '';
+            leaderboard.forEach((entry, index) => {
+                const date = new Date(entry.date).toLocaleDateString('id-ID');
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                html += `
+                    <div class="flex justify-between items-center py-2 ${index < 3 ? 'font-bold' : ''}">
+                        <div class="flex items-center">
+                            <span class="w-6 text-center">${medal} ${index + 1}.</span>
+                            <span class="ml-2">${entry.name}</span>
+                        </div>
+                        <div class="text-right">
+                            <span>${entry.score}</span>
+                            <span class="text-xs text-gray-500 block">${date}</span>
+                        </div>
+                    </div>
+                    ${index < leaderboard.length - 1 ? '<hr class="my-1">' : ''}
+                `;
+            });
+            
+            leaderboardElement.innerHTML = html;
+        }
+
+        // Start single player mode (offline)
+        function startSinglePlayer() {
+            gameState.totalRounds = parseInt(roundsSelect.value);
+            gameState.selectedRegion = regionSelect.value;
+            
+            // Initialize map
+            initMap();
+            updateMapType(mapTypeSelect.value);
+            
+            // Show game screen
+            lobbyScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // Start first round
+            gameState.currentRound = 1;
+            startRound();
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
