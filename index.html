@@ -3,659 +3,1104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maps Guesser - Leaderboard & Name System</title>
-    
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Leaflet CSS & JS -->
+    <title>Maps Guesser - Tebak Lokasi</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
         }
         
-        .loading-overlay {
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .game-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .game-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        @media (min-width: 768px) {
+            .game-content {
+                flex-direction: row;
+            }
+        }
+        
+        .map-section {
+            flex: 1;
+            padding: 20px;
+            border-right: 1px solid #eee;
+        }
+        
+        .info-section {
+            flex: 0 0 350px;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .stat-item {
+            text-align: center;
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+        
+        .clue-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .clue-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+        }
+        
+        .clue-title i {
+            margin-right: 8px;
+            color: #f59e0b;
+        }
+        
+        .clue-text {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #475569;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        .players-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .players-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+        
+        .player-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .player-item:last-child {
+            border-bottom: none;
+        }
+        
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+        
+        .player-info {
+            flex: 1;
+        }
+        
+        .player-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .player-status {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        
+        .player-score {
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        
+        .result-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.8);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
-            color: white;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
         }
         
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+        .result-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            transform: translateY(20px);
+            transition: transform 0.5s ease;
+        }
+        
+        .result-overlay.active .result-card {
+            transform: translateY(0);
+        }
+        
+        .result-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+        
+        .result-distance {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #3b82f6;
+        }
+        
+        .result-score {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 20px 0;
+            color: #10b981;
+        }
+        
+        .result-location {
+            font-size: 1.1rem;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .difficulty-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .difficulty-easy {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .difficulty-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .difficulty-hard {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .guess-marker {
+            background-color: #3b82f6;
+            border: 3px solid white;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        
+        .answer-marker {
+            background-color: #ef4444;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .distance-line {
+            stroke: #ef4444;
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+        }
+        
+        .timer-critical {
+            color: #ef4444 !important;
+            animation: pulse 0.5s infinite;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
         }
         
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        #map {
-            height: 300px;
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
-            cursor: crosshair;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-        }
-        
-        .dev-badge {
-            background: linear-gradient(45deg, #f59e0b, #d97706);
-            color: white;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 4px;
-        }
-        
-        .leaderboard-gold { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
-        .leaderboard-silver { background-color: #f3f4f6; border-left: 4px solid #9ca3af; }
-        .leaderboard-bronze { background-color: #fef7ed; border-left: 4px solid #f97316; }
-        
-        .name-change-disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .cooldown-timer {
-            font-size: 0.7rem;
-            color: #6b7280;
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-50 font-sans">
-    <!-- Loading Overlay -->
-    <div id="globalLoading" class="loading-overlay">
-        <div class="text-center">
-            <div class="loading-spinner mx-auto mb-4"></div>
-            <div class="text-xl mb-2">Memuat Game Maps Guesser</div>
-            <div class="text-sm text-gray-300">Menyiapkan sistem...</div>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1 class="game-title">🗺️ Maps Guesser</h1>
+            <p class="game-subtitle">Uji pengetahuan geografismu! Tebak lokasi berdasarkan petunjuk yang diberikan.</p>
+        </div>
+        
+        <div class="game-card">
+            <div class="game-content">
+                <div class="map-section">
+                    <div id="map"></div>
+                    
+                    <div class="game-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="round-display">1/5</div>
+                            <div class="stat-label">Ronde</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="score-display">0</div>
+                            <div class="stat-label">Skor</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="timer-display">30</div>
+                            <div class="stat-label">Detik Tersisa</div>
+                        </div>
+                    </div>
+                    
+                    <div class="clue-box">
+                        <div class="clue-title">
+                            <i>📍</i> Petunjuk Lokasi
+                        </div>
+                        <div class="clue-text" id="clue-text">
+                            Pilih tingkat kesulitan dan mulai permainan!
+                        </div>
+                        <div id="difficulty-badge" class="difficulty-badge difficulty-medium mt-3">
+                            Sedang
+                        </div>
+                    </div>
+                    
+                    <div class="game-controls">
+                        <button id="lock-guess-btn" class="btn btn-primary">
+                            <i>🔒</i> Kunci Tebakan
+                        </button>
+                        <button id="hint-btn" class="btn btn-secondary">
+                            <i>💡</i> Petunjuk (<span id="hint-count">3</span>)
+                        </button>
+                    </div>
+                    
+                    <div class="game-controls">
+                        <button id="start-game-btn" class="btn btn-success">
+                            <i>🚀</i> Mulai Permainan
+                        </button>
+                        <button id="reset-game-btn" class="btn btn-danger">
+                            <i>🔄</i> Ulangi
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <div class="players-list">
+                        <div class="players-title">Pemain</div>
+                        <div id="players-container">
+                            <div class="player-item">
+                                <div class="player-avatar">A</div>
+                                <div class="player-info">
+                                    <div class="player-name">Andi</div>
+                                    <div class="player-status">Menunggu...</div>
+                                </div>
+                                <div class="player-score">0</div>
+                            </div>
+                            <div class="player-item">
+                                <div class="player-avatar">B</div>
+                                <div class="player-info">
+                                    <div class="player-name">Bot 1</div>
+                                    <div class="player-status">Menunggu...</div>
+                                </div>
+                                <div class="player-score">0</div>
+                            </div>
+                            <div class="player-item">
+                                <div class="player-avatar">C</div>
+                                <div class="player-info">
+                                    <div class="player-name">Bot 2</div>
+                                    <div class="player-status">Menunggu...</div>
+                                </div>
+                                <div class="player-score">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="clue-box mt-4">
+                        <div class="clue-title">
+                            <i>🏆</i> Papan Peringkat
+                        </div>
+                        <div id="leaderboard" class="mt-2">
+                            <div class="player-item">
+                                <div class="player-avatar" style="background: #f59e0b;">1</div>
+                                <div class="player-info">
+                                    <div class="player-name">Wira</div>
+                                </div>
+                                <div class="player-score">2450</div>
+                            </div>
+                            <div class="player-item">
+                                <div class="player-avatar" style="background: #94a3b8;">2</div>
+                                <div class="player-info">
+                                    <div class="player-name">Budi</div>
+                                </div>
+                                <div class="player-score">1890</div>
+                            </div>
+                            <div class="player-item">
+                                <div class="player-avatar" style="background: #a16207;">3</div>
+                                <div class="player-info">
+                                    <div class="player-name">Sari</div>
+                                </div>
+                                <div class="player-score">1560</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="result-overlay" id="result-overlay">
+        <div class="result-card">
+            <h2 class="result-title" id="result-title">Hasil Ronde</h2>
+            <div class="result-distance" id="result-distance">Jarak: 0.0 km</div>
+            <div class="result-score" id="result-score">+0 Poin</div>
+            <div class="result-location" id="result-location">Lokasi: ...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <button id="next-round-btn" class="btn btn-primary" style="width: 100%;">
+                <i>➡️</i> Ronde Berikutnya
+            </button>
         </div>
     </div>
 
-    <div id="app" class="min-h-screen flex flex-col hidden">
-        <!-- Header -->
-        <header class="bg-blue-600 text-white p-3 shadow-md">
-            <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-xl font-bold">🎯 Maps Guesser</h1>
-                <div class="flex items-center space-x-2">
-                    <span id="playerDisplay">Player</span>
-                    <span id="devBadge" class="dev-badge hidden">Dev</span>
-                    <div class="bg-green-500 px-2 py-1 rounded text-xs">✅ Online</div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="flex-1 container mx-auto p-3">
-            <!-- Lobby Screen -->
-            <div id="lobbyScreen" class="bg-white rounded-lg shadow-sm p-4">
-                <h2 class="text-lg font-bold mb-4 text-center">Lobby Game</h2>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <!-- Player & Settings -->
-                    <div class="space-y-3">
-                        <!-- Name Settings -->
-                        <div class="p-3 bg-blue-50 rounded-lg">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Pengaturan Nama</label>
-                            <div class="flex space-x-2 mb-2">
-                                <input type="text" id="playerName" placeholder="Nama Anda" 
-                                       class="flex-1 border border-gray-300 rounded-md p-2 text-sm" 
-                                       maxlength="15">
-                                <button id="saveNameBtn" class="bg-green-500 hover:bg-green-600 text-white px-3 rounded text-sm transition">
-                                    💾 Simpan
-                                </button>
-                            </div>
-                            <div id="nameCooldown" class="text-xs text-gray-500 hidden"></div>
-                        </div>
-                        
-                        <!-- Friend System -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tambah Teman</label>
-                            <div class="flex space-x-2 mb-1">
-                                <input type="text" id="friendName" placeholder="Nama teman" 
-                                       class="flex-1 border border-gray-300 rounded-md p-2 text-sm"
-                                       maxlength="15">
-                                <button id="addFriendBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 rounded text-sm transition">
-                                    ➕
-                                </button>
-                            </div>
-                            <div id="friendsList" class="space-y-1 max-h-20 overflow-y-auto">
-                                <!-- Daftar teman -->
-                            </div>
-                        </div>
-                        
-                        <!-- Lobby System -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Kode Lobby</label>
-                            <div class="flex space-x-2 mb-1">
-                                <input type="text" id="lobbyCode" placeholder="Kode Lobby" 
-                                       class="flex-1 border border-gray-300 rounded-md p-2 text-sm"
-                                       value="ABC123" maxlength="6">
-                                <button id="generateCodeBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 rounded text-sm transition">
-                                    🔄
-                                </button>
-                            </div>
-                            <button id="joinLobbyBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded text-sm transition">
-                                🎮 Buat/Gabung Lobby
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Game Settings & Leaderboard -->
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Ronde</label>
-                            <select id="roundsSelect" class="w-full border border-gray-300 rounded-md p-2 text-sm">
-                                <option value="3">3 Ronde</option>
-                                <option value="5" selected>5 Ronde</option>
-                                <option value="7">7 Ronde</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Region</label>
-                            <select id="regionSelect" class="w-full border border-gray-300 rounded-md p-2 text-sm">
-                                <option value="jogja">🏯 Yogyakarta</option>
-                                <option value="bali">🌴 Bali</option>
-                                <option value="jakarta">🏙️ Jakarta</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Mini Leaderboard -->
-                        <div class="p-3 bg-yellow-50 rounded-lg">
-                            <h3 class="font-bold text-sm mb-2">🏆 Leaderboard Global</h3>
-                            <div id="miniLeaderboard" class="space-y-1 text-xs">
-                                <div class="flex justify-between">
-                                    <span>1. Wira <span class="dev-badge">Dev</span></span>
-                                    <span class="font-bold">15.200</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span>2. Andi</span>
-                                    <span>12.500</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span>3. Sari</span>
-                                    <span>10.800</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Players in Lobby -->
-                <div class="mt-6">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-md font-bold">Pemain di Lobby (<span id="playerCount">1</span>/6)</h3>
-                        <div class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                            💤 Menunggu
-                        </div>
-                    </div>
-                    <div id="playersList" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                        <!-- Players akan muncul di sini -->
-                    </div>
-                </div>
-                
-                <!-- Lobby Controls -->
-                <div class="mt-4 flex space-x-2">
-                    <button id="startGameBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm transition">
-                        🚀 Mulai Game
-                    </button>
-                    <button id="viewLeaderboardBtn" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-3 rounded text-sm transition">
-                        📊 Leaderboard
-                    </button>
-                </div>
-            </div>
-
-            <!-- Leaderboard Screen -->
-            <div id="leaderboardScreen" class="bg-white rounded-lg shadow-sm p-4 hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold">🏆 Leaderboard Global</h2>
-                    <button id="backToLobbyBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition">
-                        ← Kembali
-                    </button>
-                </div>
-                
-                <div class="space-y-2 max-h-96 overflow-y-auto">
-                    <div class="leaderboard-gold p-3 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center">
-                                <span class="font-bold text-lg mr-2">🥇</span>
-                                <span class="font-bold">Wira <span class="dev-badge">Dev</span></span>
-                            </div>
-                            <span class="font-bold text-lg">15.200</span>
-                        </div>
-                        <div class="text-xs text-gray-600 mt-1">Terakhir main: 2 jam lalu</div>
-                    </div>
-                    
-                    <div class="leaderboard-silver p-3 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center">
-                                <span class="font-bold text-lg mr-2">🥈</span>
-                                <span>Andi</span>
-                            </div>
-                            <span class="font-bold">12.500</span>
-                        </div>
-                        <div class="text-xs text-gray-600 mt-1">Terakhir main: 1 hari lalu</div>
-                    </div>
-                    
-                    <div class="leaderboard-bronze p-3 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center">
-                                <span class="font-bold text-lg mr-2">🥉</span>
-                                <span>Sari</span>
-                            </div>
-                            <span class="font-bold">10.800</span>
-                        </div>
-                        <div class="text-xs text-gray-600 mt-1">Terakhir main: 3 jam lalu</div>
-                    </div>
-                    
-                    <!-- More leaderboard entries -->
-                    <div id="fullLeaderboard" class="space-y-2">
-                        <!-- Leaderboard entries akan diload di sini -->
-                    </div>
-                </div>
-                
-                <!-- Player Stats -->
-                <div class="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <h3 class="font-bold text-sm mb-2">📈 Statistik Anda</h3>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div>Peringkat: <span id="playerRank" class="font-bold">-</span></div>
-                        <div>Skor Tertinggi: <span id="playerHighScore" class="font-bold">-</span></div>
-                        <div>Total Game: <span id="totalGames" class="font-bold">-</span></div>
-                        <div>Rata-rata Skor: <span id="averageScore" class="font-bold">-</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Game Screen -->
-            <div id="gameScreen" class="hidden">
-                <!-- Game content... -->
-                <div class="text-center p-8 bg-white rounded-lg">
-                    <h2 class="text-2xl font-bold mb-4">Game Screen</h2>
-                    <p>Game akan dimulai...</p>
-                </div>
-            </div>
-        </main>
-    </div>
-
     <script>
-        // =============================================
-        // MAPS GUESSER - Leaderboard & Name System
-        // =============================================
-
         // Game State
-        let gameState = {
-            playerId: null,
-            playerName: '',
-            isDev: false,
-            nameChangeCooldown: null,
-            friends: [],
+        const gameState = {
+            currentRound: 1,
+            totalRounds: 5,
             score: 0,
-            leaderboard: []
+            roundActive: false,
+            currentLocation: null,
+            currentGuess: null,
+            map: null,
+            guessMarker: null,
+            answerMarker: null,
+            distanceLine: null,
+            timer: null,
+            timeLeft: 30,
+            hintsUsed: 0,
+            maxHints: 3,
+            players: [
+                { id: 1, name: "Andi", score: 0, status: "waiting", isBot: false },
+                { id: 2, name: "Bot 1", score: 0, status: "waiting", isBot: true },
+                { id: 3, name: "Bot 2", score: 0, status: "waiting", isBot: true }
+            ],
+            locations: {
+                jogja: [
+                    { lat: -7.797068, lng: 110.370529, name: "Keraton Yogyakarta", clue: "Istana resmi Kesultanan Yogyakarta yang masih berfungsi", difficulty: "easy" },
+                    { lat: -7.803134, lng: 110.364919, name: "Malioboro", clue: "Jalan terkenal dengan pedagang kaki lima dan andong", difficulty: "easy" },
+                    { lat: -7.767911, lng: 110.378251, name: "Sleman City Hall", clue: "Kantor pemerintahan kabupaten Sleman", difficulty: "medium" },
+                    { lat: -7.782849, lng: 110.390867, name: "Kampus UGM", clue: "Universitas negeri terbesar di Yogyakarta", difficulty: "medium" },
+                    { lat: -7.759586, lng: 110.408024, name: "Sleman City Mall", clue: "Mall terbesar di kawasan Sleman dengan banyak toko", difficulty: "hard" },
+                    { lat: -7.824863, lng: 110.388794, name: "Candi Prambanan", clue: "Kompleks candi Hindu terbesar di Indonesia", difficulty: "hard" }
+                ],
+                bali: [
+                    { lat: -8.340539, lng: 115.091950, name: "Beachwalk Mall", clue: "Mall di tepi pantai Kuta dengan view laut", difficulty: "easy" },
+                    { lat: -8.722916, lng: 115.172485, name: "Pantai Pandawa", clue: "Pantai dengan tebing kapur dan patung Pandawa", difficulty: "medium" },
+                    { lat: -8.519268, lng: 115.263023, name: "GWK Cultural Park", clue: "Taman budaya dengan patung raksasa", difficulty: "hard" }
+                ],
+                jakarta: [
+                    { lat: -6.208763, lng: 106.845599, name: "Monas", clue: "Monumen nasional dengan api emas di puncaknya", difficulty: "easy" },
+                    { lat: -6.227906, lng: 106.808923, name: "Grand Indonesia", clue: "Mall mewah di bundaran HI", difficulty: "medium" },
+                    { lat: -6.125634, lng: 106.833236, name: "Kota Tua", clue: "Kawasan bersejarah dengan bangunan kolonial Belanda", difficulty: "hard" }
+                ]
+            },
+            currentRegion: 'jogja'
         };
 
         // DOM Elements
-        const globalLoading = document.getElementById('globalLoading');
-        const app = document.getElementById('app');
-        const lobbyScreen = document.getElementById('lobbyScreen');
-        const leaderboardScreen = document.getElementById('leaderboardScreen');
-        const gameScreen = document.getElementById('gameScreen');
-        const playerNameInput = document.getElementById('playerName');
-        const saveNameBtn = document.getElementById('saveNameBtn');
-        const nameCooldown = document.getElementById('nameCooldown');
-        const playerDisplay = document.getElementById('playerDisplay');
-        const devBadge = document.getElementById('devBadge');
-        const viewLeaderboardBtn = document.getElementById('viewLeaderboardBtn');
-        const backToLobbyBtn = document.getElementById('backToLobbyBtn');
-        const fullLeaderboard = document.getElementById('fullLeaderboard');
+        const mapElement = document.getElementById('map');
+        const roundDisplay = document.getElementById('round-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const clueText = document.getElementById('clue-text');
+        const difficultyBadge = document.getElementById('difficulty-badge');
+        const hintCount = document.getElementById('hint-count');
+        const lockGuessBtn = document.getElementById('lock-guess-btn');
+        const hintBtn = document.getElementById('hint-btn');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const resetGameBtn = document.getElementById('reset-game-btn');
+        const playersContainer = document.getElementById('players-container');
+        const resultOverlay = document.getElementById('result-overlay');
+        const resultTitle = document.getElementById('result-title');
+        const resultDistance = document.getElementById('result-distance');
+        const resultScore = document.getElementById('result-score');
+        const resultLocation = document.getElementById('result-location');
+        const progressFill = document.getElementById('progress-fill');
+        const nextRoundBtn = document.getElementById('next-round-btn');
 
-        // Initialize Application
-        function init() {
-            console.log('Initializing game...');
+        // Initialize the game
+        function initGame() {
+            // Initialize map
+            gameState.map = L.map('map').setView([-7.7971, 110.3688], 13);
             
-            try {
-                // Setup player ID
-                gameState.playerId = 'player_' + Date.now();
-                
-                // Load saved data
-                loadPlayerData();
-                loadLeaderboard();
-                
-                // Setup event listeners
-                setupEventListeners();
-                
-                // Show app
-                setTimeout(() => {
-                    globalLoading.classList.add('hidden');
-                    app.classList.remove('hidden');
-                    updateUI();
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Init error:', error);
-                alert('Error memuat game: ' + error.message);
-            }
-        }
-
-        // Load Player Data from localStorage
-        function loadPlayerData() {
-            const savedData = localStorage.getItem('mapsGuesserPlayer');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(gameState.map);
             
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                gameState.playerName = data.name || '';
-                gameState.isDev = data.isDev || false;
-                gameState.nameChangeCooldown = data.nameChangeCooldown || null;
-                gameState.friends = data.friends || [];
-                gameState.score = data.score || 0;
-            } else {
-                // Default values
-                gameState.playerName = 'Player' + Math.floor(Math.random() * 1000);
-                gameState.isDev = false;
-                gameState.nameChangeCooldown = null;
-                gameState.friends = [];
-                gameState.score = 0;
-                savePlayerData();
-            }
-            
-            // Check if player name is "Wira" for dev badge
-            if (gameState.playerName.toLowerCase() === 'wira') {
-                gameState.isDev = true;
-                savePlayerData();
-            }
-            
-            updateNameCooldown();
-        }
-
-        // Save Player Data to localStorage
-        function savePlayerData() {
-            const data = {
-                name: gameState.playerName,
-                isDev: gameState.isDev,
-                nameChangeCooldown: gameState.nameChangeCooldown,
-                friends: gameState.friends,
-                score: gameState.score,
-                lastPlayed: new Date().toISOString()
-            };
-            localStorage.setItem('mapsGuesserPlayer', JSON.stringify(data));
-        }
-
-        // Load Leaderboard from localStorage
-        function loadLeaderboard() {
-            const savedLeaderboard = localStorage.getItem('mapsGuesserLeaderboard');
-            
-            if (savedLeaderboard) {
-                gameState.leaderboard = JSON.parse(savedLeaderboard);
-            } else {
-                // Default leaderboard with dev
-                gameState.leaderboard = [
-                    { name: 'Wira', score: 15200, isDev: true, lastPlayed: new Date().toISOString() },
-                    { name: 'Andi', score: 12500, isDev: false, lastPlayed: new Date(Date.now() - 86400000).toISOString() },
-                    { name: 'Sari', score: 10800, isDev: false, lastPlayed: new Date(Date.now() - 10800000).toISOString() },
-                    { name: 'Budi', score: 9800, isDev: false, lastPlayed: new Date(Date.now() - 172800000).toISOString() },
-                    { name: 'Dewi', score: 8700, isDev: false, lastPlayed: new Date(Date.now() - 259200000).toISOString() }
-                ];
-                saveLeaderboard();
-            }
-            
-            updateLeaderboardDisplay();
-        }
-
-        // Save Leaderboard to localStorage
-        function saveLeaderboard() {
-            localStorage.setItem('mapsGuesserLeaderboard', JSON.stringify(gameState.leaderboard));
-        }
-
-        // Add Score to Leaderboard
-        function addScoreToLeaderboard(name, score, isDev = false) {
-            const existingEntry = gameState.leaderboard.find(entry => entry.name === name);
-            
-            if (existingEntry) {
-                if (score > existingEntry.score) {
-                    existingEntry.score = score;
-                    existingEntry.lastPlayed = new Date().toISOString();
+            // Add click listener for guessing
+            gameState.map.on('click', function(e) {
+                if (gameState.roundActive) {
+                    handleMapClick(e.latlng);
                 }
-            } else {
-                gameState.leaderboard.push({
-                    name: name,
-                    score: score,
-                    isDev: isDev,
-                    lastPlayed: new Date().toISOString()
-                });
-            }
-            
-            // Sort leaderboard by score descending
-            gameState.leaderboard.sort((a, b) => b.score - a.score);
-            
-            // Keep only top 100 entries
-            if (gameState.leaderboard.length > 100) {
-                gameState.leaderboard = gameState.leaderboard.slice(0, 100);
-            }
-            
-            saveLeaderboard();
-            updateLeaderboardDisplay();
-        }
-
-        // Update Leaderboard Display
-        function updateLeaderboardDisplay() {
-            // Update mini leaderboard
-            const miniLeaderboard = document.getElementById('miniLeaderboard');
-            miniLeaderboard.innerHTML = '';
-            
-            gameState.leaderboard.slice(0, 3).forEach((player, index) => {
-                const entry = document.createElement('div');
-                entry.className = 'flex justify-between';
-                entry.innerHTML = `
-                    <span>${index + 1}. ${player.name} ${player.isDev ? '<span class="dev-badge">Dev</span>' : ''}</span>
-                    <span class="${index === 0 ? 'font-bold' : ''}">${player.score.toLocaleString()}</span>
-                `;
-                miniLeaderboard.appendChild(entry);
             });
             
-            // Update full leaderboard
-            fullLeaderboard.innerHTML = '';
+            // Set up event listeners
+            lockGuessBtn.addEventListener('click', lockGuess);
+            hintBtn.addEventListener('click', useHint);
+            startGameBtn.addEventListener('click', startGame);
+            resetGameBtn.addEventListener('click', resetGame);
+            nextRoundBtn.addEventListener('click', nextRound);
             
-            gameState.leaderboard.forEach((player, index) => {
-                const entry = document.createElement('div');
-                let bgClass = 'bg-white';
-                if (index === 0) bgClass = 'leaderboard-gold';
-                else if (index === 1) bgClass = 'leaderboard-silver';
-                else if (index === 2) bgClass = 'leaderboard-bronze';
-                
-                entry.className = `${bgClass} p-3 rounded-lg`;
-                entry.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center">
-                            <span class="font-bold mr-2">${index + 1}.</span>
-                            <span class="${index < 3 ? 'font-bold' : ''}">${player.name} ${player.isDev ? '<span class="dev-badge">Dev</span>' : ''}</span>
-                        </div>
-                        <span class="${index < 3 ? 'font-bold text-lg' : 'font-bold'}">${player.score.toLocaleString()}</span>
-                    </div>
-                    <div class="text-xs text-gray-600 mt-1">
-                        Terakhir main: ${formatLastPlayed(player.lastPlayed)}
-                    </div>
-                `;
-                fullLeaderboard.appendChild(entry);
-            });
-            
-            // Update player stats
-            updatePlayerStats();
-        }
-
-        // Update Player Stats
-        function updatePlayerStats() {
-            const playerRank = gameState.leaderboard.findIndex(entry => entry.name === gameState.playerName) + 1;
-            const playerEntry = gameState.leaderboard.find(entry => entry.name === gameState.playerName);
-            
-            document.getElementById('playerRank').textContent = playerRank > 0 ? playerRank : '-';
-            document.getElementById('playerHighScore').textContent = playerEntry ? playerEntry.score.toLocaleString() : '0';
-            // Simulate stats
-            document.getElementById('totalGames').textContent = playerEntry ? Math.floor(playerEntry.score / 1000) : '0';
-            document.getElementById('averageScore').textContent = playerEntry ? Math.floor(playerEntry.score / (playerEntry.score / 1000)) : '0';
-        }
-
-        // Format Last Played Time
-        function formatLastPlayed(isoString) {
-            const now = new Date();
-            const lastPlayed = new Date(isoString);
-            const diffMs = now - lastPlayed;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-            
-            if (diffMins < 60) {
-                return `${diffMins} menit lalu`;
-            } else if (diffHours < 24) {
-                return `${diffHours} jam lalu`;
-            } else {
-                return `${diffDays} hari lalu`;
-            }
-        }
-
-        // Name Change Cooldown System
-        function updateNameCooldown() {
-            const now = new Date();
-            
-            if (gameState.nameChangeCooldown) {
-                const cooldownEnd = new Date(gameState.nameChangeCooldown);
-                const timeLeft = cooldownEnd - now;
-                
-                if (timeLeft > 0) {
-                    // Still in cooldown
-                    const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
-                    nameCooldown.textContent = `Bisa ganti nama dalam ${daysLeft} hari`;
-                    nameCooldown.classList.remove('hidden');
-                    saveNameBtn.classList.add('name-change-disabled');
-                    saveNameBtn.disabled = true;
-                } else {
-                    // Cooldown finished
-                    gameState.nameChangeCooldown = null;
-                    savePlayerData();
-                    nameCooldown.classList.add('hidden');
-                    saveNameBtn.classList.remove('name-change-disabled');
-                    saveNameBtn.disabled = false;
-                }
-            } else {
-                // No cooldown
-                nameCooldown.classList.add('hidden');
-                saveNameBtn.classList.remove('name-change-disabled');
-                saveNameBtn.disabled = false;
-            }
-        }
-
-        // Change Player Name
-        function changePlayerName() {
-            const newName = playerNameInput.value.trim();
-            
-            if (!newName) {
-                alert('Masukkan nama yang valid!');
-                return;
-            }
-            
-            if (newName === gameState.playerName) {
-                alert('Nama sama dengan sebelumnya!');
-                return;
-            }
-            
-            // Check cooldown
-            if (gameState.nameChangeCooldown) {
-                const cooldownEnd = new Date(gameState.nameChangeCooldown);
-                if (cooldownEnd > new Date()) {
-                    alert('Anda harus menunggu 10 hari untuk mengganti nama lagi!');
-                    return;
-                }
-            }
-            
-            // Set new name and cooldown
-            const oldName = gameState.playerName;
-            gameState.playerName = newName;
-            
-            // Set cooldown for 10 days
-            const cooldownEnd = new Date();
-            cooldownEnd.setDate(cooldownEnd.getDate() + 10);
-            gameState.nameChangeCooldown = cooldownEnd.toISOString();
-            
-            // Check for dev badge
-            gameState.isDev = newName.toLowerCase() === 'wira';
-            
-            // Update leaderboard if player exists
-            const leaderboardEntry = gameState.leaderboard.find(entry => entry.name === oldName);
-            if (leaderboardEntry) {
-                leaderboardEntry.name = newName;
-                leaderboardEntry.isDev = gameState.isDev;
-                saveLeaderboard();
-            }
-            
-            savePlayerData();
+            // Update UI
             updateUI();
-            updateNameCooldown();
-            
-            alert(`Nama berhasil diubah menjadi: ${newName}${gameState.isDev ? ' (Developer)' : ''}`);
         }
 
-        // Update UI
+        // Update UI elements
         function updateUI() {
-            playerNameInput.value = gameState.playerName;
-            playerDisplay.textContent = gameState.playerName;
+            roundDisplay.textContent = `${gameState.currentRound}/${gameState.totalRounds}`;
+            scoreDisplay.textContent = gameState.score;
+            timerDisplay.textContent = gameState.timeLeft;
+            hintCount.textContent = gameState.maxHints - gameState.hintsUsed;
             
-            if (gameState.isDev) {
-                devBadge.classList.remove('hidden');
-            } else {
-                devBadge.classList.add('hidden');
+            // Update players list
+            updatePlayersList();
+        }
+
+        // Update players list
+        function updatePlayersList() {
+            playersContainer.innerHTML = '';
+            
+            gameState.players.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'player-item';
+                
+                const firstLetter = player.name.charAt(0).toUpperCase();
+                const statusText = gameState.roundActive ? 
+                    (player.status === 'finished' ? '✅ Selesai' : '🎯 Menebak...') : 
+                    'Menunggu...';
+                
+                playerElement.innerHTML = `
+                    <div class="player-avatar">${firstLetter}</div>
+                    <div class="player-info">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-status">${statusText}</div>
+                    </div>
+                    <div class="player-score">${player.score}</div>
+                `;
+                
+                playersContainer.appendChild(playerElement);
+            });
+        }
+
+        // Handle map click for guessing
+        function handleMapClick(latlng) {
+            if (!gameState.roundActive) return;
+            
+            gameState.currentGuess = latlng;
+            
+            // Remove previous guess marker
+            if (gameState.guessMarker) {
+                gameState.map.removeLayer(gameState.guessMarker);
+            }
+            
+            // Add new guess marker
+            gameState.guessMarker = L.circleMarker(latlng, {
+                radius: 8,
+                color: '#3b82f6',
+                fillColor: '#3b82f6',
+                fillOpacity: 0.7,
+                className: 'guess-marker'
+            }).addTo(gameState.map);
+            
+            // Enable lock button with visual feedback
+            lockGuessBtn.classList.remove('btn-primary');
+            lockGuessBtn.classList.add('btn-success');
+            lockGuessBtn.innerHTML = '<i>✅</i> Konfirmasi Tebakan';
+        }
+
+        // Lock in the guess
+        function lockGuess() {
+            if (!gameState.currentGuess || !gameState.roundActive) {
+                alert('Silakan klik peta terlebih dahulu untuk menebak!');
+                return;
+            }
+            
+            endRound();
+        }
+
+        // Use a hint
+        function useHint() {
+            if (gameState.hintsUsed >= gameState.maxHints || !gameState.roundActive) {
+                alert('Tidak ada petunjuk tersisa!');
+                return;
+            }
+            
+            gameState.hintsUsed++;
+            updateUI();
+            
+            // Show a hint (zoom to general area)
+            if (gameState.currentLocation) {
+                gameState.map.setView([gameState.currentLocation.lat, gameState.currentLocation.lng], 11);
+            }
+            
+            alert(`Petunjuk digunakan! Sekarang tersisa ${gameState.maxHints - gameState.hintsUsed} petunjuk.`);
+        }
+
+        // Start the game
+        function startGame() {
+            gameState.currentRound = 1;
+            gameState.score = 0;
+            gameState.roundActive = true;
+            
+            // Reset players
+            gameState.players.forEach(player => {
+                player.score = 0;
+                player.status = 'guessing';
+            });
+            
+            // Start first round
+            startRound();
+            
+            // Update UI
+            updateUI();
+            startGameBtn.disabled = true;
+        }
+
+        // Start a new round
+        function startRound() {
+            if (gameState.currentRound > gameState.totalRounds) {
+                endGame();
+                return;
+            }
+            
+            gameState.roundActive = true;
+            gameState.currentGuess = null;
+            gameState.hintsUsed = 0;
+            gameState.timeLeft = 30;
+            
+            // Clear previous markers and line
+            clearMapOverlays();
+            
+            // Hide result overlay
+            resultOverlay.classList.remove('active');
+            
+            // Select random location
+            const regionLocations = gameState.locations[gameState.currentRegion];
+            const randomIndex = Math.floor(Math.random() * regionLocations.length);
+            gameState.currentLocation = regionLocations[randomIndex];
+            
+            // Update UI with location clue
+            clueText.textContent = gameState.currentLocation.clue;
+            
+            // Update difficulty badge
+            updateDifficultyBadge(gameState.currentLocation.difficulty);
+            
+            // Reset map view
+            gameState.map.setView([-7.7971, 110.3688], 13);
+            
+            // Reset lock button
+            lockGuessBtn.classList.remove('btn-success');
+            lockGuessBtn.classList.add('btn-primary');
+            lockGuessBtn.innerHTML = '<i>🔒</i> Kunci Tebakan';
+            
+            // Start timer
+            startTimer();
+            
+            // Update players status
+            gameState.players.forEach(player => {
+                player.status = 'guessing';
+            });
+            updatePlayersList();
+            
+            // Update UI
+            updateUI();
+        }
+
+        // Update difficulty badge
+        function updateDifficultyBadge(difficulty) {
+            difficultyBadge.className = 'difficulty-badge';
+            
+            switch(difficulty) {
+                case 'easy':
+                    difficultyBadge.classList.add('difficulty-easy');
+                    difficultyBadge.textContent = 'Mudah';
+                    break;
+                case 'medium':
+                    difficultyBadge.classList.add('difficulty-medium');
+                    difficultyBadge.textContent = 'Sedang';
+                    break;
+                case 'hard':
+                    difficultyBadge.classList.add('difficulty-hard');
+                    difficultyBadge.textContent = 'Sulit';
+                    break;
             }
         }
 
-        // Setup Event Listeners
-        function setupEventListeners() {
-            // Name system
-            saveNameBtn.addEventListener('click', changePlayerName);
-            playerNameInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') changePlayerName();
-            });
+        // Start the round timer
+        function startTimer() {
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+            }
             
-            // Leaderboard navigation
-            viewLeaderboardBtn.addEventListener('click', function() {
-                lobbyScreen.classList.add('hidden');
-                leaderboardScreen.classList.remove('hidden');
-            });
-            
-            backToLobbyBtn.addEventListener('click', function() {
-                leaderboardScreen.classList.add('hidden');
-                lobbyScreen.classList.remove('hidden');
-            });
-            
-            // Simulate adding score (for testing)
-            document.getElementById('joinLobbyBtn').addEventListener('click', function() {
-                // Simulate game play and add score
-                const newScore = gameState.score + Math.floor(Math.random() * 1000) + 500;
-                gameState.score = newScore;
-                addScoreToLeaderboard(gameState.playerName, newScore, gameState.isDev);
-                savePlayerData();
-                alert(`Skor baru: ${newScore}!`);
-            });
+            gameState.timer = setInterval(() => {
+                gameState.timeLeft--;
+                timerDisplay.textContent = gameState.timeLeft;
+                
+                // Visual feedback for low time
+                if (gameState.timeLeft <= 10) {
+                    timerDisplay.classList.add('timer-critical');
+                } else {
+                    timerDisplay.classList.remove('timer-critical');
+                }
+                
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timer);
+                    if (gameState.roundActive) {
+                        autoSubmitGuess();
+                    }
+                }
+            }, 1000);
         }
 
-        // Start the application
-        window.addEventListener('load', init);
+        // Auto submit when time runs out
+        function autoSubmitGuess() {
+            if (!gameState.currentGuess && gameState.roundActive) {
+                // If no guess was made, pick a random location
+                const bounds = gameState.map.getBounds();
+                const northEast = bounds.getNorthEast();
+                const southWest = bounds.getSouthWest();
+                
+                const randomLat = southWest.lat + Math.random() * (northEast.lat - southWest.lat);
+                const randomLng = southWest.lng + Math.random() * (northEast.lng - southWest.lng);
+                
+                gameState.currentGuess = { lat: randomLat, lng: randomLng };
+                
+                // Add a marker at the random guess
+                gameState.guessMarker = L.circleMarker(gameState.currentGuess, {
+                    radius: 8,
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.7,
+                    className: 'guess-marker'
+                }).addTo(gameState.map);
+            }
+            
+            endRound();
+        }
+
+        // End the current round
+        function endRound() {
+            gameState.roundActive = false;
+            clearInterval(gameState.timer);
+            
+            // Calculate distance and score
+            const distance = calculateDistance(
+                gameState.currentGuess.lat, 
+                gameState.currentGuess.lng,
+                gameState.currentLocation.lat, 
+                gameState.currentLocation.lng
+            );
+            
+            const roundScore = calculateScore(distance, gameState.currentLocation.difficulty);
+            gameState.score += roundScore;
+            
+            // Update player score
+            gameState.players[0].score = gameState.score;
+            gameState.players[0].status = 'finished';
+            
+            // Simulate bot guesses
+            simulateBotGuesses();
+            
+            // Show answer marker
+            gameState.answerMarker = L.circleMarker([gameState.currentLocation.lat, gameState.currentLocation.lng], {
+                radius: 8,
+                color: '#ef4444',
+                fillColor: '#ef4444',
+                fillOpacity: 0.7,
+                className: 'answer-marker'
+            }).addTo(gameState.map);
+            
+            // Draw distance line
+            if (window.L && gameState.currentGuess) {
+                const latlngs = [
+                    [gameState.currentGuess.lat, gameState.currentGuess.lng],
+                    [gameState.currentLocation.lat, gameState.currentLocation.lng]
+                ];
+                
+                gameState.distanceLine = L.polyline(latlngs, {
+                    color: '#ef4444',
+                    weight: 2,
+                    dashArray: '5, 5',
+                    className: 'distance-line'
+                }).addTo(gameState.map);
+            }
+            
+            // Show results
+            showRoundResults(distance, roundScore);
+        }
+
+        // Calculate distance between two points in km
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+            return distance;
+        }
+
+        // Calculate score based on distance and difficulty
+        function calculateScore(distance, difficulty) {
+            let maxScore;
+            
+            switch(difficulty) {
+                case 'easy':
+                    maxScore = 100;
+                    break;
+                case 'medium':
+                    maxScore = 200;
+                    break;
+                case 'hard':
+                    maxScore = 300;
+                    break;
+                default:
+                    maxScore = 150;
+            }
+            
+            // Score decreases with distance
+            let score = Math.max(0, maxScore - Math.floor(distance * 10));
+            
+            // Ensure minimum score of 10
+            return Math.max(10, score);
+        }
+
+        // Simulate bot guesses
+        function simulateBotGuesses() {
+            for (let i = 1; i < gameState.players.length; i++) {
+                const player = gameState.players[i];
+                
+                if (player.isBot && player.status === 'guessing') {
+                    // Bots have different accuracy based on difficulty
+                    let accuracy;
+                    
+                    switch(gameState.currentLocation.difficulty) {
+                        case 'easy':
+                            accuracy = 0.8; // 80% chance of good guess
+                            break;
+                        case 'medium':
+                            accuracy = 0.6; // 60% chance of good guess
+                            break;
+                        case 'hard':
+                            accuracy = 0.4; // 40% chance of good guess
+                            break;
+                    }
+                    
+                    let botDistance;
+                    if (Math.random() < accuracy) {
+                        // Good guess - close to actual location
+                        botDistance = Math.random() * 2; // Within 2 km
+                    } else {
+                        // Bad guess - further away
+                        botDistance = 5 + Math.random() * 15; // 5-20 km away
+                    }
+                    
+                    // Calculate bot score
+                    const botScore = calculateScore(botDistance, gameState.currentLocation.difficulty);
+                    player.score += botScore;
+                    player.status = 'finished';
+                }
+            }
+            
+            updatePlayersList();
+        }
+
+        // Show round results
+        function showRoundResults(distance, score) {
+            resultTitle.textContent = `Hasil Ronde ${gameState.currentRound}`;
+            resultDistance.textContent = `Jarak: ${distance.toFixed(2)} km`;
+            resultScore.textContent = `+${score} Poin`;
+            resultLocation.textContent = `Lokasi: ${gameState.currentLocation.name}`;
+            
+            // Calculate progress for progress bar
+            const progress = (gameState.currentRound / gameState.totalRounds) * 100;
+            progressFill.style.width = `${progress}%`;
+            
+            // Show result overlay
+            resultOverlay.classList.add('active');
+        }
+
+        // Move to next round
+        function nextRound() {
+            gameState.currentRound++;
+            startRound();
+        }
+
+        // End the game
+        function endGame() {
+            gameState.roundActive = false;
+            clearInterval(gameState.timer);
+            
+            // Show final results
+            resultTitle.textContent = 'Permainan Selesai!';
+            resultDistance.textContent = '';
+            resultScore.textContent = `Skor Akhir: ${gameState.score}`;
+            resultLocation.textContent = `Selamat! Anda menyelesaikan ${gameState.totalRounds} ronde.`;
+            progressFill.style.width = '100%';
+            
+            nextRoundBtn.textContent = 'Main Lagi';
+            nextRoundBtn.onclick = resetGame;
+            
+            resultOverlay.classList.add('active');
+            startGameBtn.disabled = false;
+        }
+
+        // Reset the game
+        function resetGame() {
+            gameState.currentRound = 1;
+            gameState.score = 0;
+            gameState.roundActive = false;
+            
+            // Reset players
+            gameState.players.forEach(player => {
+                player.score = 0;
+                player.status = 'waiting';
+            });
+            
+            // Clear map
+            clearMapOverlays();
+            
+            // Reset UI
+            clueText.textContent = 'Pilih tingkat kesulitan dan mulai permainan!';
+            updateDifficultyBadge('medium');
+            gameState.map.setView([-7.7971, 110.3688], 13);
+            
+            // Hide result overlay
+            resultOverlay.classList.remove('active');
+            
+            // Update UI
+            updateUI();
+            startGameBtn.disabled = false;
+            
+            // Reset next round button
+            nextRoundBtn.textContent = 'Ronde Berikutnya';
+            nextRoundBtn.onclick = nextRound;
+        }
+
+        // Clear map overlays (markers and lines)
+        function clearMapOverlays() {
+            if (gameState.guessMarker) {
+                gameState.map.removeLayer(gameState.guessMarker);
+                gameState.guessMarker = null;
+            }
+            
+            if (gameState.answerMarker) {
+                gameState.map.removeLayer(gameState.answerMarker);
+                gameState.answerMarker = null;
+            }
+            
+            if (gameState.distanceLine) {
+                gameState.map.removeLayer(gameState.distanceLine);
+                gameState.distanceLine = null;
+            }
+        }
+
+        // Initialize the game when the page loads
+        window.addEventListener('DOMContentLoaded', initGame);
     </script>
 </body>
 </html>
